@@ -1,0 +1,2367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1a56db">
+<!-- ★ Firebase 설정: firebase.google.com 에서 프로젝트 생성 후 FIREBASE_CONFIG 교체 -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="알펜루트">
+<title>알펜루트 여행 가이드</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --blue:#1a56db;--blue-light:#ebf5ff;--blue-mid:#93c5fd;--blue-dark:#1e40af;
+  --green:#059669;--green-light:#ecfdf5;--green-mid:#6ee7b7;
+  --amber:#d97706;--amber-light:#fffbeb;--amber-mid:#fcd34d;
+  --red:#dc2626;--red-light:#fef2f2;
+  --purple:#7c3aed;--purple-light:#f5f3ff;
+  --gray:#6b7280;--gray-light:#f9fafb;--gray-mid:#e5e7eb;
+  --text1:#111827;--text2:#374151;--text3:#6b7280;--text4:#9ca3af;
+  --border:#e5e7eb;--border2:#d1d5db;
+  --r:12px;--r-sm:8px;--r-lg:16px;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;background:#f3f4f6;color:var(--text1)}
+#app{height:100vh;display:flex;flex-direction:column;max-width:430px;margin:0 auto;background:white;position:relative;overflow:hidden}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:white;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);pointer-events:none}
+.screen.active{transform:translateX(0);pointer-events:all}
+.screen.prev{transform:translateX(-30%)}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* NAV */
+#main-nav{position:absolute;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);padding-bottom:env(safe-area-inset-bottom);z-index:100;transform:translateY(100%);transition:transform .3s}
+#main-nav.visible{transform:translateY(0)}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;background:none;border:none;cursor:pointer;color:var(--text4);font-size:10px;font-family:inherit}
+.nav-btn.active{color:var(--blue)}
+.nav-btn svg{width:22px;height:22px}
+/* HEADER */
+.hdr{padding:12px 16px 10px;border-bottom:1px solid var(--border);background:white;flex-shrink:0;display:flex;align-items:center;gap:10px;min-height:52px}
+.hdr h2{font-size:16px;font-weight:600;flex:1;color:var(--text1)}
+.back{background:none;border:none;cursor:pointer;padding:2px 6px 2px 0;color:var(--blue);font-size:14px;display:flex;align-items:center;gap:4px}
+/* CARDS */
+.card{background:white;border-radius:var(--r);border:1px solid var(--border);padding:14px 16px;margin-bottom:10px}
+.card-blue{background:var(--blue-light);border-color:var(--blue-mid)}
+.card-amber{background:var(--amber-light);border-color:var(--amber-mid)}
+.card-green{background:var(--green-light);border-color:var(--green-mid)}
+.card-purple{background:var(--purple-light);border-color:#c4b5fd}
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600}
+.badge-blue{background:var(--blue);color:white}
+.badge-green{background:var(--green);color:white}
+.badge-amber{background:var(--amber);color:white}
+.badge-gray{background:var(--gray-mid);color:var(--text3)}
+.badge-live{background:var(--blue);color:white;animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+/* TIMELINE */
+.tl{display:flex;gap:10px}
+.tl-left{width:40px;text-align:right;flex-shrink:0}
+.tl-time{font-size:11px;color:var(--text3);line-height:1.8}
+.tl-mid{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:20px}
+.tl-dot{width:9px;height:9px;border-radius:50%;background:var(--gray-mid);flex-shrink:0;margin-top:5px;border:2px solid white;box-shadow:0 0 0 1px var(--border2)}
+.tl-dot.done{background:var(--blue);opacity:.5;box-shadow:none}
+.tl-dot.now{background:var(--blue);width:11px;height:11px;margin-top:4px;box-shadow:0 0 0 3px var(--blue-light),0 0 0 4px var(--blue-mid)}
+.tl-line{width:1px;flex:1;background:var(--border);margin-top:4px}
+.tl-line.done{background:var(--blue-mid);opacity:.5}
+.tl-body{flex:1;padding-bottom:14px}
+.tl-card{border-radius:var(--r-sm);padding:10px 12px;border:1px solid var(--border);background:white;cursor:pointer;transition:background .15s}
+.tl-card:active{background:var(--gray-light)}
+.tl-card.now{background:var(--blue-light);border-color:var(--blue-mid)}
+.tl-title{font-size:13px;font-weight:600;color:var(--text1);margin-bottom:2px}
+.tl-sub{font-size:11px;color:var(--text3)}
+/* SECTION */
+.section{padding:16px}
+.section+.section{padding-top:0}
+.sec-title{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px}
+/* PHRASE */
+.phrase-tab{display:flex;gap:6px;padding:12px 16px 0;overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+.phrase-tab::-webkit-scrollbar{display:none}
+.ptab{padding:5px 12px;border-radius:20px;border:1px solid var(--border2);background:white;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.ptab.active{background:var(--blue);color:white;border-color:var(--blue)}
+.pcard{background:white;border:1px solid var(--border);border-radius:var(--r-sm);padding:13px 14px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.pcard:active{background:var(--blue-light)}
+.pjp{font-size:16px;font-weight:700;color:var(--text1);margin-bottom:3px}
+.pread{font-size:12px;color:var(--blue);margin-bottom:3px;font-weight:500}
+.pkr{font-size:12px;color:var(--text3)}
+/* STAMP */
+.stamp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:16px}
+.stamp{aspect-ratio:1;border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:2px dashed var(--border2);background:var(--gray-light);transition:all .2s;text-align:center;padding:8px}
+.stamp.earned{background:var(--blue-light);border:2px solid var(--blue);animation:stamp-pop .4s ease}
+@keyframes stamp-pop{0%{transform:scale(.85)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+.stamp.locked{opacity:.4;cursor:default}
+.stamp-icon{font-size:28px;line-height:1}
+.stamp-name{font-size:10px;color:var(--text2);font-weight:600;line-height:1.3}
+.stamp-day{font-size:9px;color:var(--text4)}
+/* ETIQUETTE */
+.etc-item{padding:12px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start}
+.etc-icon{font-size:20px;flex-shrink:0;margin-top:1px}
+.etc-title{font-size:13px;font-weight:600;color:var(--text1);margin-bottom:3px}
+.etc-desc{font-size:12px;color:var(--text2);line-height:1.6}
+/* MORE GRID */
+.more-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:16px}
+.more-item{background:white;border:1px solid var(--border);border-radius:var(--r);padding:16px 14px;cursor:pointer;transition:background .15s;display:flex;flex-direction:column;gap:8px}
+.more-item:active{background:var(--gray-light)}
+.more-icon{font-size:24px}
+.more-label{font-size:13px;font-weight:600;color:var(--text1)}
+.more-desc{font-size:11px;color:var(--text3);line-height:1.4}
+/* CURRENCY */
+.curr-box{background:var(--gray-light);border-radius:var(--r);padding:16px;margin-bottom:10px}
+.curr-label{font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600}
+.curr-input{font-size:28px;font-weight:700;color:var(--text1);border:none;background:transparent;width:100%;outline:none}
+.curr-result{font-size:22px;font-weight:700;color:var(--blue)}
+/* BUTTONS */
+.btn{padding:11px 20px;border-radius:var(--r-sm);border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;transition:opacity .15s}
+.btn:active{opacity:.8}
+.btn-primary{background:var(--blue);color:white;width:100%}
+.btn-secondary{background:var(--gray-mid);color:var(--text1);width:100%}
+/* ONBOARDING */
+#screen-onboarding{background:white;justify-content:center;align-items:center;padding:40px 24px}
+.team-btn{width:100%;padding:20px;border:2px solid var(--border2);border-radius:var(--r-lg);background:white;cursor:pointer;transition:all .2s;text-align:left;display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.team-btn:active,.team-btn.selected{border-color:var(--blue);background:var(--blue-light)}
+.team-icon{font-size:32px}
+.team-name{font-size:16px;font-weight:700;color:var(--text1)}
+.team-info{font-size:12px;color:var(--text3);margin-top:2px}
+/* NARRATIVE */
+.narrative-wrap{background:var(--blue-light);border:1px solid var(--blue-mid);border-radius:var(--r);padding:14px 16px;margin-bottom:12px}
+.narrative-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.narrative-ai-badge{font-size:10px;font-weight:700;color:var(--blue-dark);background:white;border:1px solid var(--blue-mid);border-radius:20px;padding:2px 8px}
+.narrative-text{font-size:13px;line-height:1.85;color:var(--text2)}
+.narrative-loading{color:var(--text4);font-size:13px;font-style:italic}
+/* WEATHER */
+.weather-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--gray-light);border-radius:var(--r-sm);margin-bottom:12px}
+.weather-icon{font-size:18px}
+.weather-temp{font-size:13px;font-weight:700;color:var(--text1)}
+.weather-desc{font-size:11px;color:var(--text3)}
+/* PROGRESS */
+.progress-wrap{margin-bottom:14px}
+.progress-label{display:flex;justify-content:space-between;margin-bottom:5px}
+.progress-label span{font-size:11px;color:var(--text3)}
+.progress-bar{height:4px;background:var(--gray-mid);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .5s}
+/* DETAIL */
+.detail-hero{height:120px;background:var(--gray-light);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex-shrink:0}
+.detail-icon{font-size:42px}
+.detail-elev{font-size:11px;color:var(--text3)}
+/* NOTIFICATION TOAST */
+#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-100px);background:#111;color:white;padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:9999;transition:transform .3s;max-width:90%;text-align:center;pointer-events:none}
+#toast.show{transform:translateX(-50%) translateY(0)}
+/* INPUT */
+input[type=text],input[type=password],input[type=number]{width:100%;padding:11px 12px;border:1px solid var(--border2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;outline:none;color:var(--text1)}
+input:focus{border-color:var(--blue)}
+/* DAY TABS */
+.day-tabs{display:flex;gap:6px;padding:10px 14px;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--border);scrollbar-width:none;background:white}
+.day-tabs::-webkit-scrollbar{display:none}
+.day-tab{flex-shrink:0;padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:white;font-size:12px;font-weight:500;color:var(--text3);cursor:pointer;white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:2px;transition:all .15s}
+.day-tab.active{background:var(--blue);color:white;border-color:var(--blue)}
+.day-tab.today{border-color:var(--blue);color:var(--blue)}
+.day-tab-sub{font-size:9px;font-weight:400;opacity:.8}
+/* COUNTDOWN */
+.countdown-banner{background:linear-gradient(135deg,#1a56db,#1e40af);color:white;border-radius:var(--r);padding:16px;margin-bottom:12px;text-align:center}
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:0 16px}
+.h-divider{height:8px;background:var(--gray-light)}
+/* CHIP ROW */
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip{font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--blue-mid);color:var(--blue-dark);background:white}
+/* ROUTE LIST */
+.route-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)}
+.route-item:last-child{border-bottom:none}
+.route-dot{width:7px;height:7px;border-radius:50%;background:var(--gray-mid);flex-shrink:0}
+.route-dot.done-d{background:var(--blue);opacity:.5}
+.route-dot.now-d{background:var(--blue)}
+/* SHOPPING */
+.shop-item{padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start}
+.shop-item:last-child{border-bottom:none}
+.shop-icon{font-size:18px;flex-shrink:0}
+/* EMERGENCY */
+.emerg-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.emerg-item:last-child{border-bottom:none}
+.emerg-number{font-size:18px;font-weight:700;color:var(--blue);margin-left:auto}
+/* RESTAURANT CARDS */
+.rest-card{border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:8px;background:white}
+.rest-name{font-size:13px;font-weight:700;color:var(--text1);margin-bottom:3px}
+.rest-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px}
+.rest-badge{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--green-light);color:var(--green);font-weight:600;border:1px solid var(--green-mid)}
+.rest-price{font-size:10px;color:var(--amber);font-weight:700}
+.rest-note{font-size:11px;color:var(--text3);line-height:1.5}
+/* HOTEL CARDS */
+.hotel-card{border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;background:white;cursor:pointer;transition:background .15s}
+.hotel-card:active{background:var(--gray-light)}
+.hotel-hero{height:90px;border-radius:var(--r-sm);margin-bottom:12px;display:flex;align-items:center;justify-content:center;font-size:36px}
+.hotel-name{font-size:15px;font-weight:700;color:var(--text1);margin-bottom:4px}
+.hotel-meta{font-size:11px;color:var(--text3);margin-bottom:8px}
+.hotel-chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.hotel-chip{font-size:10px;padding:3px 8px;border-radius:20px;background:var(--blue-light);color:var(--blue-dark);border:1px solid var(--blue-mid)}
+.hotel-section{font-size:11px;font-weight:700;color:var(--text4);letter-spacing:.5px;text-transform:uppercase;margin:10px 0 5px}
+.hotel-detail-row{display:flex;gap:8px;align-items:flex-start;margin-bottom:5px}
+.hotel-detail-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.hotel-detail-text{font-size:12px;color:var(--text2);line-height:1.55}
+/* DETAIL HERO GRADIENT */
+.detail-hero{height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex-shrink:0;position:relative}
+.detail-icon{font-size:48px;line-height:1}
+.detail-elev{font-size:11px;font-weight:500;opacity:.85}
+.map-btn{position:absolute;right:12px;bottom:10px;background:white;border:none;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.15);color:var(--text2);display:flex;align-items:center;gap:4px}
+
+/* NAME PICKER */
+.name-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0;max-height:46vh;overflow-y:auto;padding-right:2px}
+.name-btn{padding:9px 4px;border:1.5px solid var(--border2);border-radius:var(--r-sm);background:white;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit}
+.name-btn.selected{border-color:var(--blue);background:var(--blue-light)}
+.name-btn-name{font-size:13px;font-weight:700;color:var(--text1);display:block}
+.name-btn-role{font-size:9px;color:var(--text3);display:block;margin-top:1px}
+/* EXPAND PANEL */
+.exp-panel{margin-top:6px;overflow:hidden}
+.exp-inner{background:var(--gray-light);border-radius:var(--r-sm);padding:11px 12px}
+.exp-section{margin-bottom:10px}
+.exp-section:last-child{margin-bottom:0}
+.exp-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+.exp-rest-mini{background:white;border:1px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:5px}
+.exp-rest-name{font-size:12px;font-weight:700;color:var(--text1)}
+.exp-rest-meta{font-size:10px;color:var(--text3);margin-top:2px}
+.exp-hotel-row{font-size:11px;color:var(--text2);line-height:1.55;margin-bottom:4px;display:flex;gap:6px}
+.exp-more-btn{width:100%;padding:7px;background:var(--blue-light);border:1px solid var(--blue-mid);border-radius:7px;color:var(--blue-dark);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;text-align:center;display:block}
+/* COMMENTS */
+.cmt-card{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)}
+.cmt-card:last-child{border-bottom:none}
+.cmt-avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0;margin-top:1px}
+.cmt-body{flex:1;min-width:0}
+.cmt-meta{font-size:10px;color:var(--text3);margin-bottom:2px}
+.cmt-name{font-weight:600;color:var(--text2)}
+.cmt-text{font-size:12px;color:var(--text1);line-height:1.5;word-break:break-word}
+.cmt-empty{font-size:12px;color:var(--text4);text-align:center;padding:10px 0}
+.cmt-input-row{display:flex;gap:7px;margin-top:9px;align-items:center}
+.cmt-input{flex:1;padding:7px 11px;border:1px solid var(--border2);border-radius:20px;font-size:12px;font-family:inherit;outline:none;color:var(--text1);background:white;width:auto}
+.cmt-input:focus{border-color:var(--blue)}
+.cmt-submit{background:var(--blue);color:white;border:none;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap}
+.cmt-no-fb{font-size:11px;color:var(--text4);padding:6px 0;text-align:center}
+
+/* TRANSLATE */
+.trans-upload-area{border:2px dashed var(--border2);border-radius:var(--r);padding:32px 16px;text-align:center;cursor:pointer;transition:all .2s;background:var(--gray-light);margin-bottom:14px}
+.trans-upload-area:active{background:var(--blue-light);border-color:var(--blue)}
+.trans-upload-icon{font-size:40px;margin-bottom:8px}
+.trans-upload-label{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.trans-upload-sub{font-size:12px;color:var(--text4)}
+.trans-preview{width:100%;max-height:220px;object-fit:contain;border-radius:var(--r-sm);border:1px solid var(--border);margin-bottom:12px;display:none}
+.trans-result{background:var(--gray-light);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;display:none}
+.trans-result-item{padding:10px 0;border-bottom:1px solid var(--border)}
+.trans-result-item:last-child{border-bottom:none}
+.trans-jp{font-size:15px;font-weight:700;color:var(--text1);margin-bottom:4px}
+.trans-kr{font-size:14px;color:var(--blue);line-height:1.5}
+.trans-loading{text-align:center;padding:20px 0;color:var(--text4);font-size:13px;display:none}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- SCREEN: ONBOARDING -->
+<div class="screen active" id="screen-onboarding">
+  <div style="padding:40px 24px;display:flex;flex-direction:column;justify-content:center;height:100%">
+    <div style="text-align:center;margin-bottom:36px">
+      <div style="font-size:44px;margin-bottom:12px">🏔️</div>
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:6px">일본의 알프스</h1>
+      <p style="font-size:14px;color:var(--text3)">나고야 · 알펜루트 4일 여행</p>
+      <p style="font-size:13px;color:var(--text4);margin-top:4px">2026. 5. 27 — 5. 30</p>
+    </div>
+    <div id="ob-step1"><p style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px;text-align:center">출발 팀을 선택해주세요</p>
+    <button class="team-btn" onclick="pickTeam('incheon',this)">
+      <span class="team-icon">✈️</span>
+      <div>
+        <div class="team-name">인천출발팀</div>
+        <div class="team-info">KE741 · 인천 10:35 출발</div>
+      </div>
+    </button>
+    <button class="team-btn" onclick="pickTeam('busan',this)">
+      <span class="team-icon">🛫</span>
+      <div>
+        <div class="team-name">부산출발팀</div>
+        <div class="team-info">LJ375 · 김해 08:30 출발</div>
+      </div>
+    </button>
+  </div>
+
+    <!-- STEP 2: Name picker -->
+    <div id="ob-step2" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <button onclick="backToStep1()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:14px;padding:0">← 뒤로</button>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text1)" id="ob-team-label"></div>
+          <div style="font-size:12px;color:var(--text3)">이름을 선택하세요</div>
+        </div>
+      </div>
+      <div class="name-grid" id="name-grid"></div>
+      <button class="btn btn-primary" id="ob-start-btn" onclick="confirmName()" style="display:none;margin-top:4px">여행 시작! 🏔️</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: HOME -->
+<div class="screen" id="screen-home">
+  <div style="padding:12px 16px 8px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div id="home-day" style="font-size:11px;color:var(--text3)"></div>
+      <div id="home-title" style="font-size:16px;font-weight:700;color:var(--text1)"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span id="online-badge" class="badge" style="display:none"></span>
+      <button onclick="showScreen('screen-settings')" style="background:none;border:none;cursor:pointer;font-size:20px;padding:2px">⚙️</button>
+    </div>
+  </div>
+  <!-- Day tabs -->
+  <div class="day-tabs" id="day-tabs"></div>
+  <div class="scroll" id="home-scroll" style="padding:14px 16px 80px">
+    <!-- Dynamic top cards: countdown, day summary injected here -->
+    <div id="top-cards"></div>
+    <!-- Narrative -->
+    <div id="narrative-wrap" class="narrative-wrap">
+      <div class="narrative-header">
+        <span style="font-size:16px">🤖</span>
+        <span class="narrative-ai-badge">AI 현재 안내</span>
+        <button onclick="refreshNarrative()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:14px;color:var(--blue)">↻</button>
+      </div>
+      <div id="narrative-text" class="narrative-text narrative-loading">안내 문구를 불러오는 중...</div>
+    </div>
+    <!-- Weather -->
+    <div id="weather-bar" class="weather-bar"></div>
+    <!-- Progress -->
+    <div id="prog-wrap" class="progress-wrap">
+      <div class="progress-label"><span id="prog-label">오늘 진행률</span><span id="prog-pct"></span></div>
+      <div class="progress-bar"><div id="prog-fill" class="progress-fill" style="width:0%"></div></div>
+    </div>
+    <!-- Next item -->
+    <div id="next-item-box" class="card card-amber" style="margin-bottom:12px;display:none">
+      <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:4px">⏱ 다음 일정</div>
+      <div id="next-item-title" style="font-size:14px;font-weight:700;color:var(--text1)"></div>
+      <div id="next-item-time" style="font-size:12px;color:var(--text2);margin-top:2px"></div>
+    </div>
+    <!-- Timeline -->
+    <div class="sec-title">오늘 일정</div>
+    <div id="timeline"></div>
+  </div>
+</div>
+
+<!-- SCREEN: LOCATION DETAIL -->
+<div class="screen" id="screen-detail">
+  <div class="hdr">
+    <button class="back" onclick="goBack()">← 뒤로</button>
+    <h2 id="detail-title"></h2>
+    <span id="detail-status-badge"></span>
+  </div>
+  <div class="scroll" style="padding-bottom:20px">
+    <div id="detail-hero" class="detail-hero">
+      <div id="detail-icon" class="detail-icon"></div>
+      <div id="detail-elev" class="detail-elev"></div>
+      <button class="map-btn" id="detail-map-btn" onclick="openDetailMap()" style="display:none">🗺 지도 열기</button>
+    </div>
+    <div style="padding:14px 16px 0">
+      <div id="detail-chips" class="chip-row" style="margin-bottom:12px;margin-top:0"></div>
+      <p id="detail-desc" style="font-size:13px;color:var(--text2);line-height:1.75;margin-bottom:14px"></p>
+      <div id="detail-route" style="display:none">
+        <div class="sec-title">환승 루트</div>
+        <div id="route-list" style="background:var(--gray-light);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:14px"></div>
+      </div>
+      <div id="detail-tip-wrap" class="card card-amber" style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:5px">💡 여행 팁</div>
+        <div id="detail-tip" style="font-size:12px;color:var(--text2);line-height:1.65"></div>
+      </div>
+      <div id="detail-photo-wrap" style="margin-bottom:14px">
+        <div class="sec-title">📸 인생샷 스팟</div>
+        <div id="detail-photo" style="font-size:13px;color:var(--text2);line-height:1.65"></div>
+      </div>
+      <div id="detail-rest-wrap" style="margin-bottom:14px;display:none">
+        <div class="sec-title">🍽 주변 맛집 추천</div>
+        <div id="detail-rest"></div>
+      </div>
+      <div id="detail-shop-wrap">
+        <div class="sec-title">🛍 쇼핑 추천</div>
+        <div id="detail-shop"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: TRANSLATE -->
+<div class="screen" id="screen-translate">
+  <div class="hdr"><button class="back" onclick="goBack()">← 뒤로</button><h2>🔤 AI 일본어 통역</h2></div>
+  <div class="scroll" style="padding:16px;padding-bottom:80px">
+    <div class="card card-blue" style="margin-bottom:14px">
+      <p style="font-size:12px;color:var(--blue-dark);line-height:1.6">📸 메뉴판·간판·안내문을 촬영하거나 사진을 업로드하면 AI가 일본어를 한국어로 번역합니다.</p>
+    </div>
+    <input type="file" id="trans-file-input" accept="image/*" capture="environment" style="display:none" onchange="handleTranslateImage(event)">
+    <div class="trans-upload-area" onclick="document.getElementById('trans-file-input').click()">
+      <div class="trans-upload-icon">📷</div>
+      <div class="trans-upload-label">사진 촬영 또는 업로드</div>
+      <div class="trans-upload-sub">탭하여 카메라 열기 · 갤러리에서 선택 가능</div>
+    </div>
+    <img id="trans-preview" class="trans-preview">
+    <div id="trans-loading" class="trans-loading">🤖 AI가 번역 중입니다...</div>
+    <div id="trans-result" class="trans-result"></div>
+    <div id="trans-no-key" class="card card-amber" style="display:none">
+      <p style="font-size:12px;color:var(--text2);line-height:1.6">⚠️ AI 통역은 Claude API 키가 필요합니다.<br>설정 → AI 내레이션 → API Key 입력 후 이용하세요.</p>
+    </div>
+    <button id="trans-retry-btn" class="btn btn-secondary" style="display:none;margin-top:4px" onclick="document.getElementById('trans-file-input').click()">다른 사진 번역하기</button>
+  </div>
+</div>
+
+<!-- SCREEN: PHRASES -->
+<div class="screen" id="screen-phrases">
+  <div class="hdr"><h2>🗣 일본어 생존 회화</h2></div>
+  <div id="phrase-tabs" class="phrase-tab"></div>
+  <div class="scroll" id="phrase-list" style="padding:12px 16px 80px"></div>
+</div>
+
+<!-- SCREEN: STAMPS -->
+<div class="screen" id="screen-stamps">
+  <div class="hdr"><h2>🏅 도장 깨기</h2><div id="stamp-count" style="font-size:13px;font-weight:700;color:var(--blue);margin-left:auto"></div></div>
+  <div class="scroll" style="padding-bottom:80px">
+    <div class="card card-blue" style="margin:12px 16px 0">
+      <p style="font-size:12px;color:var(--blue-dark);line-height:1.6">각 장소에 도착하면 도장을 눌러 수집하세요! 8개를 모두 모으면 여행 완주 배지가 발급됩니다. 🎉</p>
+    </div>
+    <div class="stamp-grid" id="stamp-grid"></div>
+    <div id="complete-banner" style="display:none;margin:0 16px 16px">
+      <div class="card card-green" style="text-align:center">
+        <div style="font-size:40px;margin-bottom:8px">🎊</div>
+        <div style="font-size:16px;font-weight:700;color:var(--green)">알펜루트 완주!</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px">8개 도장을 모두 모았습니다</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: MORE -->
+<div class="screen" id="screen-more">
+  <div class="hdr"><h2>더보기</h2></div>
+  <div class="scroll" style="padding-bottom:80px">
+    <div class="more-grid">
+      <div class="more-item" onclick="showScreen('screen-etiquette')">
+        <div class="more-icon">🙏</div>
+        <div class="more-label">일본 에티켓</div>
+        <div class="more-desc">교통·식당·온천 매너 가이드</div>
+      </div>
+      <div class="more-item" onclick="showScreen('screen-currency')">
+        <div class="more-icon">💴</div>
+        <div class="more-label">엔화 계산기</div>
+        <div class="more-desc">실시간 환율 변환</div>
+      </div>
+      <div class="more-item" onclick="showScreen('screen-shopping')">
+        <div class="more-icon">🛍</div>
+        <div class="more-label">쇼핑 가이드</div>
+        <div class="more-desc">지역별 특산품·추천 기념품</div>
+      </div>
+      <div class="more-item" onclick="showScreen('screen-emergency')">
+        <div class="more-icon">🆘</div>
+        <div class="more-label">긴급 정보</div>
+        <div class="more-desc">비상연락·병원·영사관</div>
+      </div>
+      <div class="more-item" onclick="showScreen('screen-checklist')">
+        <div class="more-icon">✅</div>
+        <div class="more-label">준비물 체크</div>
+        <div class="more-desc">날짜별 맞춤 체크리스트</div>
+      </div>
+      <div class="more-item" onclick="showScreen('screen-hotels')">
+        <div class="more-icon">🏨</div>
+        <div class="more-label">호텔 정보</div>
+        <div class="more-desc">숙박·온천·시설 안내</div>
+      </div>
+      <div class="more-item" onclick="showScreen('screen-settings')">
+        <div class="more-icon">⚙️</div>
+        <div class="more-label">설정</div>
+        <div class="more-desc">AI 기능·알림 설정</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: ETIQUETTE -->
+<div class="screen" id="screen-etiquette">
+  <div class="hdr"><button class="back" onclick="goBack()">← 뒤로</button><h2>🙏 일본 에티켓</h2></div>
+  <div class="scroll" style="padding:0 16px 80px" id="etiquette-list"></div>
+</div>
+
+<!-- SCREEN: CURRENCY -->
+<div class="screen" id="screen-currency">
+  <div class="hdr"><button class="back" onclick="goBack()">← 뒤로</button><h2>💴 엔화 계산기</h2></div>
+  <div class="scroll" style="padding:16px;padding-bottom:80px">
+    <div id="rate-info" style="font-size:11px;color:var(--text4);margin-bottom:12px;text-align:right"></div>
+    <div class="curr-box">
+      <div class="curr-label">일본 엔 (JPY ¥)</div>
+      <input class="curr-input" type="number" id="yen-input" placeholder="0" oninput="calcCurrency('yen')">
+    </div>
+    <div style="text-align:center;margin:6px 0;font-size:18px;color:var(--text3)">⇅</div>
+    <div class="curr-box">
+      <div class="curr-label">한국 원 (KRW ₩)</div>
+      <div class="curr-result" id="won-result">₩ —</div>
+    </div>
+    <div class="curr-box" style="margin-top:10px">
+      <div class="curr-label">한국 원 (KRW ₩)</div>
+      <input class="curr-input" type="number" id="won-input" placeholder="0" oninput="calcCurrency('won')" style="color:var(--text1);font-size:28px;font-weight:700">
+    </div>
+    <div style="text-align:center;margin:6px 0;font-size:18px;color:var(--text3)">⇅</div>
+    <div class="curr-box">
+      <div class="curr-label">일본 엔 (JPY ¥)</div>
+      <div class="curr-result" id="yen-result" style="color:var(--green)">¥ —</div>
+    </div>
+    <div class="card card-amber" style="margin-top:12px">
+      <p style="font-size:12px;color:var(--text2);line-height:1.6">💡 일본은 현금 문화입니다. 편의점 ATM(세븐일레븐·이온·우체국)에서 해외카드로 엔화 출금 가능합니다.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: SHOPPING -->
+<div class="screen" id="screen-shopping">
+  <div class="hdr"><button class="back" onclick="goBack()">← 뒤로</button><h2>🛍 쇼핑 가이드</h2></div>
+  <div class="scroll" style="padding-bottom:80px" id="shopping-list"></div>
+</div>
+
+<!-- SCREEN: HOTELS -->
+<div class="screen" id="screen-hotels">
+  <div class="hdr"><button class="back" onclick="goBack()">← 뒤로</button><h2>🏨 호텔 정보</h2></div>
+  <div class="scroll" id="hotels-list" style="padding:14px 16px 80px"></div>
+</div>
+
+<!-- SCREEN: EMERGENCY -->
+<div class="screen" id="screen-emergency">
+  <div class="hdr"><button class="back" onclick="goBack()">← 뒤로</button><h2>🆘 긴급 정보</h2></div>
+  <div class="scroll" style="padding:0 16px 80px">
+    <div class="card card-amber" style="margin-top:14px;margin-bottom:6px">
+      <p style="font-size:12px;color:var(--text2);line-height:1.6">일본은 119 (구급·소방), 110 (경찰) 두 번호를 기억하세요. 영어·한국어 통역 연결 서비스가 있습니다.</p>
+    </div>
+    <div class="sec-title" style="margin-top:14px">긴급 연락처</div>
+    <div id="emerg-list"></div>
+    <div class="sec-title" style="margin-top:14px">긴급 일본어</div>
+    <div id="emerg-phrases"></div>
+  </div>
+</div>
+
+<!-- SCREEN: CHECKLIST -->
+<div class="screen" id="screen-checklist">
+  <div class="hdr"><button class="back" onclick="goBack()">← 뒤로</button><h2>✅ 준비물 체크리스트</h2></div>
+  <div class="scroll" style="padding-bottom:80px">
+    <div style="display:flex;gap:6px;padding:12px 16px 0;overflow-x:auto;flex-shrink:0">
+      <button class="ptab active" onclick="showChecklist(0,this)">공통</button>
+      <button class="ptab" onclick="showChecklist(1,this)">1일차</button>
+      <button class="ptab" onclick="showChecklist(2,this)">2일차</button>
+      <button class="ptab" onclick="showChecklist(3,this)">3일차</button>
+      <button class="ptab" onclick="showChecklist(4,this)">4일차</button>
+    </div>
+    <div id="checklist-content" style="padding:14px 16px"></div>
+  </div>
+</div>
+
+<!-- SCREEN: SETTINGS -->
+<div class="screen" id="screen-settings">
+  <div class="hdr"><button class="back" onclick="goBack()">← 뒤로</button><h2>⚙️ 설정</h2></div>
+  <div class="scroll" style="padding:16px;padding-bottom:80px">
+    <div class="card" style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">👤 내 프로필</div>
+      <div id="profile-display" style="font-size:14px;color:var(--text1);margin-bottom:10px"></div>
+      <button class="btn btn-secondary" onclick="changeProfile()">이름 변경</button>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">🤖 AI 내레이션 (Claude API)</div>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.6">Anthropic Claude API 키를 입력하면 현재 시간·일정·날씨에 맞춰 AI가 실시간으로 안내 멘트를 생성합니다. 키가 없으면 미리 준비된 안내 문구가 표시됩니다.</p>
+      <label style="font-size:12px;color:var(--text2);font-weight:600;display:block;margin-bottom:6px">API Key</label>
+      <input type="password" id="api-key-input" placeholder="sk-ant-..." style="margin-bottom:10px">
+      <button class="btn btn-primary" onclick="saveApiKey()">저장</button>
+      <p style="font-size:11px;color:var(--text4);margin-top:8px;line-height:1.5">※ console.anthropic.com에서 발급 가능합니다. 키는 이 기기에만 저장됩니다.</p>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">🔔 스마트 알림</div>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.6">일정 30분·10분 전에 자동 알림을 받습니다. 앱이 열려 있어야 동작합니다.</p>
+      <button class="btn btn-secondary" onclick="requestNotif()">알림 권한 요청</button>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">👥 팀 변경</div>
+      <button class="btn btn-secondary" onclick="resetTeam()">팀 다시 선택</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav id="main-nav">
+  <button class="nav-btn active" id="nav-home" onclick="navTo('home')">
+    <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+    일정
+  </button>
+  <button class="nav-btn" id="nav-phrases" onclick="navTo('phrases')">
+    <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    회화
+  </button>
+  <button class="nav-btn" id="nav-stamps" onclick="navTo('stamps')">
+    <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+    도장
+  </button>
+  <button class="nav-btn" id="nav-more" onclick="navTo('more')">
+    <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    더보기
+  </button>
+</nav>
+
+</div><!-- #app -->
+
+<script>
+
+// ============================================================
+// FIREBASE CONFIG  ★★★ firebase.google.com → 프로젝트 생성 → 웹앱 추가 → SDK 복사 ★★★
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+function initFirebase() {
+  try {
+    if (FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY') return;
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    window.db = firebase.firestore();
+  } catch(e) { console.warn('Firebase init failed:', e); }
+}
+
+// ============================================================
+// MEMBERS (23명)
+// ============================================================
+const MEMBERS = [
+  {name:'양채진',role:'교수님'},
+  {name:'김미소',role:'대표님'},{name:'이진숙',role:'대표님'},{name:'채가희',role:'대표님'},
+  {name:'김태관',role:'대표님'},{name:'김희순',role:'대표님'},{name:'박서진',role:'대표님'},
+  {name:'배경희',role:'대표님'},{name:'박종근',role:'대표님'},{name:'성승제',role:'대표님'},
+  {name:'이강산',role:'대표님'},{name:'이유정',role:'대표님'},{name:'장양우',role:'대표님'},
+  {name:'이인환',role:'대표님'},{name:'임남철',role:'대표님'},{name:'이정권',role:'대표님'},
+  {name:'최준호',role:'대표님'},{name:'김현정',role:'대표님'},{name:'한혜영',role:'대표님'},
+  {name:'황지원',role:'대표님'},{name:'이진우',role:'대표님'},{name:'허진혁',role:'대표님'},
+  {name:'클로이김',role:'대표님'}
+];
+const MEMBER_COLORS = ['#1a56db','#059669','#d97706','#7c3aed','#dc2626','#0891b2','#4f46e5','#db2777','#65a30d','#ea580c','#8b5cf6','#06b6d4','#b45309','#0f766e','#9333ea','#e11d48','#0284c7','#16a34a','#c026d3','#ca8a04','#0369a1','#15803d','#9f1239'];
+function getMemberColor(name) {
+  const idx = MEMBERS.findIndex(m => m.name === name);
+  return idx >= 0 ? MEMBER_COLORS[idx % MEMBER_COLORS.length] : '#6b7280';
+}
+const LOCATION_MAP = {
+  'takayama':'takayama','kurobe-lake':'kurobe-lake','murodo':'murodo',
+  'unazuki':'unazuki','unazuki-ret':'unazuki','shirakawa':'shirakawa',
+  'nagoya-castle':'nagoya-castle','nagoya-castle-b':'nagoya-castle',
+};
+const HOTEL_MAP = {
+  'hotel-d1':0,'onsen-d1':0,'bfast-d2':0,
+  'hotel-d2':1,'onsen-d2':1,'dinner-d2':1,
+  'hotel-d3':2,'bfast-d4':2,'bfast-d4b':2,
+};
+
+// ============================================================
+// DATA
+// ============================================================
+const TRIP = {
+  incheon: {
+    days: [
+      {
+        day:1, date:'2026-05-27', label:'제1일 · 수요일',
+        title:'인천 → 나고야 → 오쿠히다',
+        weather:{icon:'⛅',temp:'15–22°C',desc:'맑음 · 일교차 있음'},
+        items:[
+          {id:'icn-gather',time:'07:35',title:'인천국제공항 집결',loc:'인천국제공항',icon:'✈️',type:'airport'},
+          {id:'ke741',time:'10:35',title:'KE741 출발',loc:'인천국제공항',icon:'🛫',type:'flight'},
+          {id:'ngo-arr',time:'12:30',title:'나고야 중부 국제공항 도착',loc:'나고야',icon:'🛬',type:'flight'},
+          {id:'lunch-d1',time:'13:30',title:'중식 (현지식)',loc:'나고야',icon:'🍜',type:'meal'},
+          {id:'takayama',time:'16:00',title:'다카야마 옛거리 관광',loc:'다카야마',icon:'🏯',type:'sight'},
+          {id:'okuhida',time:'18:30',title:'오쿠히다 온천향 이동',loc:'오쿠히다',icon:'🚌',type:'transport'},
+          {id:'hotel-d1',time:'19:30',title:'호텔 체크인 · 석식 (카이세키)',loc:'신호다카 야마노 호텔',icon:'🏨',type:'hotel'},
+          {id:'onsen-d1',time:'21:00',title:'온천욕 ♨',loc:'신호다카 야마노 호텔',icon:'♨️',type:'leisure'},
+        ]
+      },
+      {
+        day:2, date:'2026-05-28', label:'제2일 · 목요일',
+        title:'다테야마 알펜루트 횡단 → 도야마',
+        weather:{icon:'⛰️',temp:'무로도 6–10°C · 도야마 18–24°C',desc:'고지대 강풍 · 잔설 가능'},
+        items:[
+          {id:'bfast-d2',time:'07:30',title:'호텔 조식',loc:'신호다카 야마노 호텔',icon:'🍳',type:'meal'},
+          {id:'ogisawa',time:'09:00',title:'오기사와 출발 (토로리버스)',loc:'오기사와',icon:'🚌',type:'transport'},
+          {id:'kurobe-lake',time:'09:30',title:'쿠로베호수 도착',loc:'쿠로베호수',icon:'🏔️',type:'sight'},
+          {id:'cablecar',time:'10:00',title:'케이블카 탑승',loc:'쿠로베다이라',icon:'🚡',type:'transport'},
+          {id:'ropeway',time:'10:30',title:'로프웨이 → 다이칸보',loc:'다이칸보',icon:'🚠',type:'transport'},
+          {id:'murodo',time:'11:00',title:'무로도 도착 (해발 2,450m)',loc:'무로도',icon:'🗻',type:'sight'},
+          {id:'lunch-d2',time:'12:00',title:'무로도 중식 (도시락)',loc:'무로도 레스토랑',icon:'🍱',type:'meal'},
+          {id:'toyama-move',time:'14:00',title:'비조다이라 → 도야마 이동',loc:'도야마',icon:'🚌',type:'transport'},
+          {id:'hotel-d2',time:'16:30',title:'다테코쿠 국제호텔 체크인',loc:'다테코쿠 국제호텔',icon:'🏨',type:'hotel'},
+          {id:'dinner-d2',time:'19:00',title:'석식 (카이세키)',loc:'다테코쿠 국제호텔',icon:'🍽️',type:'meal'},
+          {id:'onsen-d2',time:'21:00',title:'온천욕 ♨',loc:'다테코쿠 국제호텔',icon:'♨️',type:'leisure'},
+        ]
+      },
+      {
+        day:3, date:'2026-05-29', label:'제3일 · 금요일',
+        title:'우나즈키 토롯코 → 시라카와고 → 나고야',
+        weather:{icon:'☀️',temp:'18–25°C',desc:'맑음 · 자외선 강함'},
+        items:[
+          {id:'bfast-d3',time:'07:30',title:'호텔 조식',loc:'다테코쿠 국제호텔',icon:'🍳',type:'meal'},
+          {id:'unazuki',time:'09:00',title:'우나즈키 토롯코 열차 출발',loc:'우나즈키역',icon:'🚂',type:'sight'},
+          {id:'unazuki-ret',time:'11:00',title:'우나즈키 귀환',loc:'우나즈키역',icon:'🚂',type:'transport'},
+          {id:'lunch-d3',time:'11:30',title:'중식 (현지식)',loc:'우나즈키 시내',icon:'🍜',type:'meal'},
+          {id:'shirakawa-move',time:'13:00',title:'시라카와고 이동 (전용버스 약 1:20)',loc:'시라카와고',icon:'🚌',type:'transport'},
+          {id:'shirakawa',time:'14:30',title:'시라카와고 합장마을 관광',loc:'시라카와고',icon:'🏘️',type:'sight'},
+          {id:'nagoya-move',time:'17:00',title:'나고야 이동',loc:'나고야',icon:'🚌',type:'transport'},
+          {id:'dinner-d3',time:'19:00',title:'석식 (히즈마부시)',loc:'나고야 현지 식당',icon:'🍚',type:'meal'},
+          {id:'hotel-d3',time:'20:30',title:'코트야드 바이 메리어트 체크인',loc:'코트야드 바이 메리어트 나고야',icon:'🏨',type:'hotel'},
+        ]
+      },
+      {
+        day:4, date:'2026-05-30', label:'제4일 · 토요일',
+        title:'나고야성 관광 → 귀국',
+        weather:{icon:'☀️',temp:'20–27°C',desc:'맑음'},
+        items:[
+          {id:'bfast-d4',time:'07:00',title:'호텔 이른 조식',loc:'코트야드 바이 메리어트 나고야',icon:'🍳',type:'meal'},
+          {id:'nagoya-castle',time:'08:30',title:'나고야성 · 혼마루 어전 관광',loc:'나고야성',icon:'🏯',type:'sight'},
+          {id:'airport-d4',time:'11:00',title:'나고야 중부 국제공항 이동',loc:'나고야 중부 국제공항',icon:'🚌',type:'transport'},
+          {id:'ke742',time:'13:40',title:'KE742 출발 → 인천 15:40 도착',loc:'나고야 중부 국제공항',icon:'🛫',type:'flight'},
+        ]
+      }
+    ]
+  }
+};
+// Busan = same but day 1 morning different, day 4 flight different
+TRIP.busan = JSON.parse(JSON.stringify(TRIP.incheon));
+TRIP.busan.days[0].title = '부산 → 나고야 → 오쿠히다';
+TRIP.busan.days[0].items = [
+  {id:'pus-gather',time:'05:30',title:'부산 김해국제공항 집결',loc:'김해국제공항',icon:'✈️',type:'airport'},
+  {id:'lj375',time:'08:30',title:'LJ375 출발',loc:'김해국제공항',icon:'🛫',type:'flight'},
+  {id:'ngo-arr-b',time:'10:00',title:'나고야 도착 · 인천팀 대기 (약 1h 25m)',loc:'나고야 중부 국제공항',icon:'🛬',type:'flight'},
+  {id:'merge',time:'12:30',title:'인천팀 합류',loc:'나고야 중부 국제공항',icon:'🤝',type:'transport'},
+  ...TRIP.incheon.days[0].items.filter(i=>['lunch-d1','takayama','okuhida','hotel-d1','onsen-d1'].includes(i.id))
+];
+TRIP.busan.days[3].items = [
+  {id:'bfast-d4b',time:'07:00',title:'호텔 이른 조식',loc:'코트야드 바이 메리어트 나고야',icon:'🍳',type:'meal'},
+  {id:'nagoya-castle-b',time:'08:00',title:'나고야성 · 혼마루 어전 관광',loc:'나고야성',icon:'🏯',type:'sight'},
+  {id:'airport-d4b',time:'09:30',title:'나고야 중부 국제공항 이동',loc:'나고야 중부 국제공항',icon:'🚌',type:'transport'},
+  {id:'lj376',time:'11:00',title:'LJ376 출발 → 부산 12:30 도착',loc:'나고야 중부 국제공항',icon:'🛫',type:'flight'},
+];
+
+// Location Details
+const LOCATIONS = {
+  'takayama': {
+    icon:'🏯', elev:'해발 560m · 히다 지역',
+    heroGrad:'linear-gradient(135deg,#78350f,#b45309)',
+    chips:['에도 시대 거리','사케 명산지','히다 명물 요리'],
+    desc:'다카야마 산마치 스지(三町筋)는 에도 시대 상가의 모습을 그대로 보존한 거리입니다. 검은 목조 건물들이 이어지는 골목을 걸으며 300년 전 일본의 분위기를 느낄 수 있어요. 일본 정부 지정 중요 전통 건물군 보존지구로 외국인 관광객도 많이 찾는 곳입니다. 붉은 난간의 나카바시(中橋)와 히다강이 어우러진 풍경도 놓치지 마세요.',
+    tip:'가게들은 대부분 17시면 문을 닫으니 서두르세요. 카드 결제가 안 되는 곳이 많아 현금(엔화)을 충분히 준비해야 합니다. 사루보보(さるぼぼ) 인형은 히다 지역의 행운 부적으로 기념품으로 최고입니다. 료칸·레스토랑은 예약 없이 현장 방문도 가능하지만, 인기 식당은 줄이 길 수 있어요.',
+    photo:'나카바시(中橋) 위에서 히다강과 산을 배경으로 찍으면 인생샷! 산마치 스지 거리 중간쯤에서 흑목조 건물 배경으로 찍는 컷도 인기입니다. 아침 8~9시면 관광객이 적어 조용하고 좋아요.',
+    shop:'사루보보 인형 · 히다 목각 공예 · 지역 사케(히다호마레) · 미타라시 당고 · 히다우시 연관 제품 · 히다 漆器',
+    mapUrl:'https://maps.google.com/?q=高山三町筋+岐阜県高山市',
+    restaurants:[
+      {name:'와키자야 (脇ざや)',type:'히다규 요리',price:'¥3,000–5,000',note:'히다 소고기(飛騨牛) 스테이크와 샤브샤브 전문점. 산마치 스지 안에 위치. 런치 코스가 합리적.'},
+      {name:'마코토 스시 (飛騨まこと寿司)',type:'향토 스시',price:'¥2,000–3,500',note:'히다 지역 신선한 식재료로 만드는 스시. 지역 사케와 함께 즐기기 좋음.'},
+      {name:'야타이 미타라시 당고',type:'길거리 간식',price:'¥200–300',note:'간장 소스 꼬치 과자. 산마치 스지 골목 여러 곳에서 즉석으로 구워 판매. 꼭 먹어볼 것!'},
+      {name:'히다 소바 타케',type:'소바·우동',price:'¥900–1,500',note:'히다 산간 지역 메밀로 만든 수타 소바. 점심 한정 영업. 다시 국물이 깊고 진함.'},
+    ],
+    hasRoute:false
+  },
+  'kurobe-lake': {
+    icon:'🏔️', elev:'해발 1,448m · 쿠로베호수',
+    heroGrad:'linear-gradient(135deg,#1e3a5f,#0369a1)',
+    chips:['일본 최대 아치댐','에메랄드 호수','북알프스 설산 전망'],
+    desc:'쿠로베댐(黒部ダム)은 1963년 완공된 일본 최대의 아치형 댐으로 높이 186m, 저수량 2억 톤에 달합니다. 댐 건설에는 7년간 1,000만 명이 투입됐고 171명이 희생된 일본 건설 역사의 상징적 존재예요. 댐 위에서 바라보는 에메랄드빛 쿠로베호수와 북알프스 설산의 조화는 압도적인 절경입니다.',
+    tip:'댐 위 전망대까지 220개 계단이 있습니다. 5월 말이면 설산이 아직 남아 있어 더욱 아름다워요. 댐 방류 시즌(6월 26일~10월)이 아니라면 방류는 볼 수 없지만 경치만으로도 충분합니다. 기념품숍과 식당은 터미널 내에 있습니다.',
+    photo:'댐 위 중앙에서 호수 쪽을 바라보고 찍으면 에메랄드 호수와 설산이 한 컷에! 전망대 꼭대기(레인보우테라스)에서 내려다보는 댐 전경도 장관입니다.',
+    shop:'쿠로베댐 카레빵(명물) · 댐 카레 레토르트 · 알펜루트 기념 스탬프 · 엽서 · 키홀더',
+    mapUrl:'https://maps.google.com/?q=黒部ダム+富山県',
+    restaurants:[
+      {name:'쿠로베댐 레스토랑',type:'경양식·카레',price:'¥1,200–2,000',note:'해발 1,470m 댐 터미널 내 식당. 명물 댐 카레라이스를 꼭 드세요. 점심 시간 줄이 길 수 있음.'},
+      {name:'레이크 카페',type:'카페·스낵',price:'¥500–1,000',note:'댐 전망 테라스 카페. 커피·핫초콜릿·간단한 스낵. 경치 감상하며 휴식하기 좋음.'},
+    ],
+    hasRoute:false
+  },
+  'murodo': {
+    icon:'🗻', elev:'해발 2,450m · 무로도 (알펜루트 최고점)',
+    heroGrad:'linear-gradient(135deg,#1c1917,#44403c)',
+    chips:['일본 알프스 최고점','설벽(雪の大谷)','미쿠리가이케 연못'],
+    desc:'무로도(室堂)는 다테야마 알펜루트의 최고 지점으로 해발 2,450m에 위치합니다. 5월에는 최고 20m에 달하는 거대한 눈벽 「유키노오타니(雪の大谷)」가 도로 양쪽에 솟아있어 장관을 연출합니다. 에메랄드빛 화산 호수 미쿠리가이케(みくりが池)는 일본에서 가장 높은 곳의 온천 연못이에요. 고산 특유의 식생과 웅장한 북알프스 파노라마가 압권입니다.',
+    tip:'여름에도 기온 5–10°C, 바람이 강합니다. 경량 패딩이나 방풍재킷 필수! 고산병을 방지하기 위해 급히 움직이지 말고 충분히 수분을 섭취하세요. 화장실 유료(100엔). 설벽 보행 구간은 눈길이므로 미끄럼 주의. 5월 말 기준 설벽 높이 약 15–20m.',
+    photo:'유키노오타니 설벽 길 속에서 눈벽을 올려다보며 찍으면 SNS 인기 사진! 미쿠리가이케 연못에 다테야마 봉우리(3,015m)가 반영되는 장면도 환상적. 무로도 터미널 옥상 전망대에서의 파노라마도 추천.',
+    shop:'무로도 한정 기념 스탬프 · 알펜루트 공식 굿즈 · 설벽 디자인 엽서 · 미쿠리가이케 연못 키홀더 · 고산 허브티',
+    mapUrl:'https://maps.google.com/?q=室堂+富山県立山町',
+    restaurants:[
+      {name:'무로도 터미널 식당',type:'일식·정식',price:'¥1,200–1,800',note:'해발 2,450m에서 먹는 식사! 산가쿠소바(山岳そば)와 카레라이스가 대표 메뉴. 추운 날씨에 따뜻한 소바 한 그릇이 최고.'},
+      {name:'미쿠리가이케 온천 식당',type:'가정식·온천 요리',price:'¥1,500–2,500',note:'일본 최고(最高) 고도 온천 시설 내 식당. 산나물 정식이 인기. 온천 입욕(일반 600엔)도 가능.'},
+      {name:'매점 도시락',type:'도시락',price:'¥800–1,200',note:'무로도역 매점에서 구입하는 도시락. 설벽 앞에서 도시락을 먹는 것이 인생 경험! 수량 한정이므로 일찍 구매 추천.'},
+    ],
+    hasRoute:true,
+    route:[
+      {step:'오기사와 출발',vehicle:'트롤리버스 (16분)',done:true},
+      {step:'쿠로베호수 도착',vehicle:'(도보 관람·댐 전망)'},
+      {step:'쿠로베다이라',vehicle:'케이블카 (5분)'},
+      {step:'다이칸보',vehicle:'로프웨이 (7분)'},
+      {step:'무로도 도착',vehicle:'트롤리버스 (10분)'},
+    ]
+  },
+  'unazuki': {
+    icon:'🚂', elev:'도야마현 우나즈키온천역 · 표고 224m',
+    heroGrad:'linear-gradient(135deg,#14532d,#166534)',
+    chips:['구로베 협곡 열차','편도 20km','터널 40개+'],
+    desc:'우나즈키 토롯코 열차(宇奈月トロッコ電車)는 구로베 협곡을 따라 약 20km를 달리는 관광 열차입니다. 1923년에 개통되어 100년 넘는 역사를 자랑해요. 깎아지른 협곡과 에메랄드빛 구로베강, 울창한 신록이 어우러진 비경이 파노라마로 펼쳐집니다. 40개 이상의 터널을 통과하고 21개의 다리를 건너는 스릴 넘치는 코스예요. 네코마타역(猫又駅)까지 왕복하며 약 2시간 소요됩니다.',
+    tip:'열차는 창문이 없는 오픈형이라 터널 안에서 갑자기 추워집니다. 얇은 겉옷 필수! 좌측(산 쪽) 자리에 앉으면 협곡이 더 잘 보입니다. 출발 초반에 빨간 신야마 다리(新山彦橋)가 나오니 카메라 준비하세요. 도야마 명물 마스즈시(鱒の寿し, 송어 누름 초밥)를 역 앞에서 꼭 구입하세요.',
+    photo:'빨간 신야마 다리(新山彦橋)를 배경으로 열차가 달리는 장면이 포토존. 열차 안에서 협곡 아래 에메랄드 강을 내려다보며 찍는 사진도 추천. 우나즈키 역 구름다리에서 협곡 전체를 조망하는 앵글도 멋집니다.',
+    shop:'우나즈키 온천 기념품 · 협곡 엽서 · 지역 온천 입욕제 · 구로베 협곡 굿즈 · 도야마 홍게 가공품',
+    mapUrl:'https://maps.google.com/?q=宇奈月温泉駅+富山県黒部市',
+    restaurants:[
+      {name:'마스노스시 (鱒の寿し)',type:'도야마 향토음식',price:'¥1,500–2,500',note:'도야마 명물 마스즈시(송어 누름 초밥). 역 앞 상점에서 판매. 나뭇잎으로 싸여 있어 선물용으로도 좋음. 반드시 구입 추천!'},
+      {name:'야마카와 소바',type:'소바·우동',price:'¥900–1,300',note:'우나즈키 온천 거리 내 현지 소바집. 도야마 스타일의 시원한 다시 국물 소바. 토롯코 탑승 전 아침 식사로 추천.'},
+      {name:'쿠로베 협곡 온천 레스토랑',type:'온천 식사',price:'¥1,500–3,000',note:'우나즈키 온천 호텔 레스토랑. 신선한 구로베강 생선 요리와 온천 특선 정식. 온천 세트 이용 가능.'},
+    ],
+    hasRoute:false
+  },
+  'shirakawa': {
+    icon:'🏘️', elev:'기후현 시라카와무라 · 해발 約440m',
+    heroGrad:'linear-gradient(135deg,#064e3b,#065f46)',
+    chips:['유네스코 세계문화유산 (1995)','갓쇼즈쿠리 합장 가옥','400년 역사 마을'],
+    desc:'시라카와고(白川郷)는 1995년 유네스코 세계문화유산으로 등재된 마을입니다. 급경사 초가지붕의 갓쇼즈쿠리(合掌造り) 가옥들이 400년 이상의 역사를 간직하고 있어요. 지붕 경사가 60도에 달해 마치 두 손을 모은 합장 자세처럼 생겼다고 하여 이름이 붙었습니다. 논과 초가지붕이 어우러진 풍경은 일본에서도 손꼽히는 절경으로 5월의 신록 속 마을 풍경이 특히 아름다워요.',
+    tip:'마을 내 와다케(和田家), 나가세(長瀬家) 등 일부 가옥은 내부 관람이 가능합니다(입장료 별도, 300–500엔). 오기마치 성터 전망대(荻町城跡展望台)는 마을에서 걸어서 약 10분. 마을 한 바퀴 도는 데 약 1시간 소요됩니다. 이로리(囲炉裏) 가옥 식당에서 시골 향토 음식도 경험해보세요.',
+    photo:'마을 뒤편 오기마치 성터 전망대(荻町城跡展望台)에서 마을 전체를 조망하는 뷰가 최고! 논 앞에서 합장 가옥과 함께 찍는 수평 구도도 인기입니다. 가옥 처마 아래에서 위로 찍으면 초가지붕의 웅장함이 잘 표현됩니다.',
+    shop:'합장마을 미니어처 · 갓쇼즈쿠리 공예품 · 지역 사케(도부로쿠) · 산채 가공식품 · 전통 과자 · 목각 인형',
+    mapUrl:'https://maps.google.com/?q=白川郷荻町+岐阜県大野郡白川村',
+    restaurants:[
+      {name:'이로리 (囲炉裏 식당)',type:'향토 정식',price:'¥1,500–2,500',note:'전통 합장 가옥 안 이로리(화로) 앞에서 먹는 향토 정식. 산나물·된장국·구운 생선이 메인. 시라카와고 최고의 식사 경험!'},
+      {name:'기타노쇼 (北の庄)',type:'소바·정식',price:'¥1,200–2,000',note:'마을 내 전통 소바 식당. 현지 메밀로 만든 수타 소바와 산채 정식이 인기. 점심 시간 만석이 될 수 있으니 일찍 방문.'},
+      {name:'오기마치 찻집',type:'카페·디저트',price:'¥400–800',note:'전망대 가는 길목의 찻집. 젠자이(팥죽 디저트)와 시라카와고 소프트아이스크림이 명물. 전망대 왕복 후 쉬어가기 좋음.'},
+    ],
+    hasRoute:false
+  },
+  'nagoya-castle': {
+    icon:'🏯', elev:'나고야시 나카구 혼마루',
+    heroGrad:'linear-gradient(135deg,#7c2d12,#9a3412)',
+    chips:['일본 3대 명성','황금 샤치호코','혼마루 어전 (2018 복원)'],
+    desc:'나고야성(名古屋城)은 도쿠가와 이에야스의 명으로 1612년 완공된 일본 3대 명성 중 하나입니다. 천수각 지붕 위의 황금 샤치호코(金のしゃちほこ, 높이 2.6m·무게 88kg)가 상징이에요. 2018년에 복원된 혼마루 어전(本丸御殿)은 에도 시대 최고 수준의 금벽 장식화가 가득해 꼭 내부 관람을 해야 합니다. 나고야성 외곽의 니노마루 정원과 벚나무 길도 아름다워요.',
+    tip:'천수각은 내진 보강 공사 중으로 외관만 관람 가능(2026년 기준). 혼마루 어전 내부 관람 필수! 황금 샤치호코 전시물을 가까이서 볼 수 있습니다. 개장 09:00~16:30, 입장료 약 500엔. 성 내 음식점에서 나고야 명물 히쓰마부시·텐무스를 맛볼 수 있습니다.',
+    photo:'혼마루 어전 정문 앞에서 천수각을 배경으로 찍는 사진이 정석. 니노마루 정원에서 천수각을 프레임 삼아 찍는 앵글도 추천. 황금 샤치호코 전시물과 함께 찍는 기념사진도 필수!',
+    shop:'황금 샤치호코 과자·키홀더 · 나고야성 한정 만주 · 에비센(새우전병) · 나고야 코친 가공품 · 미소카쓰 소스',
+    mapUrl:'https://maps.google.com/?q=名古屋城+愛知県名古屋市',
+    restaurants:[
+      {name:'빈쵸 에스카점 (備長 エスカ店)',type:'히쓰마부시 (장어덮밥)',price:'¥3,500–5,000',note:'나고야역 지하 에스카 상점가 내 위치. 히쓰마부시(장어덮밥)를 처음엔 그냥, 다음엔 고명과 함께, 마지막엔 오차즈케로 즐기는 나고야 명물 맛집.'},
+      {name:'야바톤 본점 (矢場とん)',type:'미소카쓰',price:'¥1,500–2,500',note:'나고야 명물 미소카쓰(된장 돈카쓰) 원조 본점. 진한 된장 소스가 특징. 나고야역·사카에 등 체인점 多.'},
+      {name:'호라이켄 나카구점 (蓬莱軒)',type:'히쓰마부시',price:'¥4,000–6,000',note:'1873년 창업, 나고야 히쓰마부시의 원조. 성 근처 위치. 점심 대기줄이 생기므로 개장 전 방문 추천.'},
+      {name:'텐무스 치요다 (天むす 千寿)',type:'텐무스 (새우 주먹밥)',price:'¥500–1,000',note:'나고야 명물 텐무스 전문점. 새우 텐뿌라가 들어간 주먹밥. 여행 중 간식으로 딱!'},
+    ],
+    hasRoute:false
+  }
+};
+
+// Hotel Data
+const HOTELS = [
+  {
+    id:'yamanohotel',
+    name:'신호다카 야마노 호텔',
+    nameJp:'新穂高 山のホテル',
+    night:'1일차 숙박 (5/27)',
+    heroGrad:'linear-gradient(135deg,#1e3a5f,#0f172a)',
+    icon:'♨️',
+    location:'기후현 다카야마시 오쿠히다온천향 신호다카',
+    chips:['노천 온천','북알프스 뷰','카이세키 정식'],
+    overview:'해발 1,100m 오쿠히다 온천향 신호다카에 위치한 본격 료칸 스타일의 온천 호텔입니다. 객실에서 북알프스 연봉이 바라보이는 최고의 위치로, 히다강의 원류 신호다카 계곡을 품고 있어요. 카이세키 정식(석식 포함)과 노천 온천이 이 호텔의 자랑입니다.',
+    onsen:'신호다카 계곡 바로 옆 노천 온천. 북알프스 설산을 바라보며 즐기는 온천이 일품. 내탕(실내탕)과 노천탕 모두 이용 가능. 24시간 개방(점검 시간 제외). 수질: 나트륨·칼슘-탄산수소염화물천.',
+    meal:'석식: 히다 소고기(飛騨牛) 샤브샤브 메인의 카이세키 정식. 조식: 일본식 조식(미소 된장국·구운 생선·달걀요리 등). 모두 식당에서 제공.',
+    access:'다카야마역에서 차로 약 40분. 버스(노히버스) 이용 시 신호다카온천 정류장 하차.',
+    tip:'노천 온천은 혼욕탕(콘요쿠)이 있는 경우도 있으니 안내 확인. 온천 이용 시 타월을 온천물에 담그는 것은 금지. 음주 후 입욕은 위험합니다. 객실에서 스리퍼 착용 문화.',
+    website:'shinhodaka-yamanohotel.jp',
+  },
+  {
+    id:'tatekoku',
+    name:'다테야마 코쿠사이 호텔',
+    nameJp:'立山国際ホテル',
+    night:'2일차 숙박 (5/28)',
+    heroGrad:'linear-gradient(135deg,#164e63,#0c4a6e)',
+    icon:'🏔️',
+    location:'도야마현 나카니카와군 다테야마마치 이와쿠라지',
+    chips:['다테야마역 근처','산자락 온천','알펜루트 거점'],
+    overview:'다테야마 알펜루트 횡단의 도야마 측 거점 호텔로, 다테야마역에서 셔틀버스로 약 6분 거리에 위치합니다. 알펜루트 대이동 후 지친 몸을 회복하기에 최적의 온천 호텔이에요. 도야마 지역 신선한 해산물과 카이세키 정식이 제공됩니다.',
+    onsen:'다테야마 산자락에서 솟아나는 온천. 대욕탕과 노천탕 모두 이용 가능. 알펜루트 종일 이동의 피로를 풀기에 최적. 수질: 약알칼리성 나트륨-탄산수소염천. 피부 보습 효과.',
+    meal:'석식: 도야마만 신선 해산물(게·홍어·방어 등) 카이세키 정식. 도야마는 일본 최고 수준의 해산물 산지! 조식: 일본식 조식. 도야마산 흰쌀이 맛있음.',
+    access:'다테야마역(다테야마 케이블카 기점)에서 호텔 셔틀버스 이용 약 6분. 알펜루트 횡단 후 다테야마역 도착 시 픽업 서비스.',
+    tip:'다테야마 알펜루트 하산 후 짐 찾기→셔틀버스 탑승까지 여유 시간이 있으니 다테야마역 근처 기념품숍 들러보세요. 도야마 지역 명물 마스즈시(송어 누름 초밥)를 역 앞에서 구입 가능.',
+    website:'tatekoku.com',
+  },
+  {
+    id:'courtyard',
+    name:'코트야드 바이 메리어트 나고야',
+    nameJp:'コートヤード・バイ・マリオット名古屋',
+    night:'3–4일차 숙박 (5/29–5/30)',
+    heroGrad:'linear-gradient(135deg,#3730a3,#4338ca)',
+    icon:'🏙️',
+    location:'아이치현 나고야시 나카구 후시미초',
+    chips:['2022년 3월 오픈','360실','지하철 후시미역 8분'],
+    overview:'2022년 3월에 오픈한 최신 시설의 메리어트 계열 호텔로 나고야 도심 후시미 지역에 위치합니다. 360개 객실 모두 현대적이고 깔끔한 인테리어로 구성되어 있어요. 나고야성, 사카에 번화가, 나고야역 모두 접근성이 좋습니다. 마지막 밤을 쾌적하게 마무리하기 좋은 호텔입니다.',
+    onsen:'온천은 없음. 대신 피트니스 센터와 욕조가 있는 넓은 욕실 제공. 귀국 전날 밤이므로 충분한 휴식에 집중하세요.',
+    meal:'호텔 내 레스토랑 운영. 조식 뷔페 제공(유료 옵션). 인근 나고야역·사카에 번화가에 다양한 식당 밀집. 히쓰마부시·미소카쓰·텐무스 등 나고야 명물 도보 거리에!',
+    access:'지하철 히가시야마선/쓰루마이선 후시미역 4번 출구에서 도보 8분. 나고야역에서 지하철 약 3정거장. 나고야성까지 지하철 또는 택시 10분.',
+    tip:'귀국 당일 조식은 일찍 드세요(공항 이동 일정 여유). 캐리어·짐은 체크아웃 후 로비에 맡길 수 있습니다. 편의점·약국이 호텔 인근 도보 5분 거리에 있어 라스트 쇼핑 가능.',
+    website:'marriott.com (Courtyard Nagoya)',
+  },
+];
+
+// Phrase Data — 12 카테고리 84개
+const PHRASES = [
+  // 기본 인사
+  {cat:'기본 인사',jp:'ありがとうございます',read:'아리가토 고자이마스',kr:'감사합니다'},
+  {cat:'기본 인사',jp:'すみません',read:'스미마센',kr:'실례합니다 / 저기요'},
+  {cat:'기본 인사',jp:'はい / いいえ',read:'하이 / 이이에',kr:'네 / 아니요'},
+  {cat:'기본 인사',jp:'わかりません',read:'와카리마센',kr:'모르겠습니다'},
+  {cat:'기본 인사',jp:'韓国語できますか？',read:'캉코쿠고 데키마스카',kr:'한국어 할 수 있나요?'},
+  {cat:'기본 인사',jp:'英語できますか？',read:'에이고 데키마스카',kr:'영어 할 수 있나요?'},
+  {cat:'기본 인사',jp:'もう一度お願いします',read:'모우 이치도 오네가이시마스',kr:'다시 한번 말씀해 주세요'},
+  {cat:'기본 인사',jp:'ゆっくり話してください',read:'윳쿠리 하나시테 쿠다사이',kr:'천천히 말씀해 주세요'},
+  // 공항·세관
+  {cat:'공항·세관',jp:'観光です',read:'칸코우 데스',kr:'관광입니다'},
+  {cat:'공항·세관',jp:'〜日間滞在します',read:'~니치칸 타이자이 시마스',kr:'~일 동안 체류합니다'},
+  {cat:'공항·세관',jp:'申告するものはありません',read:'신코쿠스루 모노와 아리마셍',kr:'신고할 것이 없어요'},
+  {cat:'공항·세관',jp:'ゲートはどこですか？',read:'게이토와 도코데스카',kr:'탑승구가 어디예요?'},
+  {cat:'공항·세관',jp:'荷物が出てきません',read:'니모츠가 데테 키마센',kr:'짐이 안 나와요'},
+  {cat:'공항·세관',jp:'両替はどこですか？',read:'료가에와 도코데스카',kr:'환전소가 어디예요?'},
+  {cat:'공항·세관',jp:'SIMカードはどこで買えますか？',read:'심 카도와 도코데 카에마스카',kr:'SIM 카드는 어디서 사나요?'},
+  // 식당
+  {cat:'식당에서',jp:'これをください',read:'코레오 쿠다사이',kr:'이거 주세요'},
+  {cat:'식당에서',jp:'おすすめは何ですか？',read:'오스스메와 난데스카',kr:'추천 메뉴가 뭔가요?'},
+  {cat:'식당에서',jp:'お会計をお願いします',read:'오카이케이오 오네가이시마스',kr:'계산해 주세요'},
+  {cat:'식당에서',jp:'おいしいです',read:'오이시이데스',kr:'맛있어요'},
+  {cat:'식당에서',jp:'アレルギーがあります',read:'아레루기가 아리마스',kr:'알레르기가 있어요'},
+  {cat:'식당에서',jp:'辛いですか？',read:'카라이데스카',kr:'맵나요?'},
+  {cat:'식당에서',jp:'水をください',read:'미즈오 쿠다사이',kr:'물 주세요'},
+  // 쇼핑
+  {cat:'쇼핑',jp:'いくらですか？',read:'이쿠라데스카',kr:'얼마예요?'},
+  {cat:'쇼핑',jp:'まけてください',read:'마케테 쿠다사이',kr:'깎아주세요'},
+  {cat:'쇼핑',jp:'免税できますか？',read:'멘제이 데키마스카',kr:'면세 되나요?'},
+  {cat:'쇼핑',jp:'袋をください',read:'후쿠로오 쿠다사이',kr:'봉투 주세요'},
+  {cat:'쇼핑',jp:'カードで払えますか？',read:'카드데 하라에마스카',kr:'카드 결제 되나요?'},
+  // 교통
+  {cat:'교통·길찾기',jp:'〜はどこですか？',read:'~와 도코데스카',kr:'~는 어디인가요?'},
+  {cat:'교통·길찾기',jp:'トイレはどこですか？',read:'토이레와 도코데스카',kr:'화장실이 어디예요?'},
+  {cat:'교통·길찾기',jp:'写真を撮ってもいいですか？',read:'샤신오 톳테모 이이데스카',kr:'사진 찍어도 돼요?'},
+  {cat:'교통·길찾기',jp:'ここで止めてください',read:'코코데 토메테 쿠다사이',kr:'여기서 세워주세요'},
+  // 온천
+  {cat:'온천에서',jp:'混浴はありますか？',read:'콘요쿠와 아리마스카',kr:'혼욕탕이 있나요?'},
+  {cat:'온천에서',jp:'タオルをください',read:'타오루오 쿠다사이',kr:'타월 주세요'},
+  {cat:'온천에서',jp:'何時まで入れますか？',read:'나ん지마데 하이레마스카',kr:'몇 시까지 들어갈 수 있나요?'},
+  // 긴급
+  {cat:'긴급상황',jp:'助けてください！',read:'타스케테 쿠다사이',kr:'도와주세요!'},
+  {cat:'긴급상황',jp:'病院はどこですか？',read:'뵤인와 도코데스카',kr:'병원이 어디예요?'},
+  {cat:'긴급상황',jp:'警察を呼んでください',read:'케이사쓰오 욘데 쿠다사이',kr:'경찰 불러주세요'},
+  {cat:'긴급상황',jp:'財布を盗まれました',read:'사이후오 누스마레마시타',kr:'지갑을 도둑맞았어요'},
+  // 교통·길찾기
+  {cat:'교통·길찾기',jp:'〜まで行きたいです',read:'~마데 이키타이데스',kr:'~까지 가고 싶어요'},
+  {cat:'교통·길찾기',jp:'バス停はどこですか？',read:'바스테이와 도코데스카',kr:'버스 정류장이 어디예요?'},
+  {cat:'교통·길찾기',jp:'この電車は〜に止まりますか？',read:'코노 덴샤와 ~니 토마리마스카',kr:'이 기차는 ~에 서나요?'},
+  {cat:'교통·길찾기',jp:'迷子になりました',read:'마이고니 나리마시타',kr:'길을 잃었어요'},
+  {cat:'교통·길찾기',jp:'地図を見せてください',read:'치즈오 미세테 쿠다사이',kr:'지도를 보여주세요'},
+  {cat:'교통·길찾기',jp:'歩いて何分かかりますか？',read:'아루이테 난풍 카카리마스카',kr:'걸어서 몇 분 걸려요?'},
+  // 택시에서
+  {cat:'택시에서',jp:'〜へ行ってください',read:'~에 잇테 쿠다사이',kr:'~로 가주세요'},
+  {cat:'택시에서',jp:'ここで止めてください',read:'코코데 토메테 쿠다사이',kr:'여기서 세워주세요'},
+  {cat:'택시에서',jp:'メーターで行ってください',read:'메타-데 잇테 쿠다사이',kr:'미터기로 가주세요'},
+  {cat:'택시에서',jp:'急いでいます',read:'이소이데 이마스',kr:'급해요'},
+  {cat:'택시에서',jp:'領収書をください',read:'료슈쇼오 쿠다사이',kr:'영수증 주세요'},
+  // 카페·편의점
+  {cat:'카페·편의점',jp:'アイスコーヒーをください',read:'아이스 코히오 쿠다사이',kr:'아이스 아메리카노 주세요'},
+  {cat:'카페·편의점',jp:'温かいものをください',read:'아타타카이 모노오 쿠다사이',kr:'따뜻한 걸로 주세요'},
+  {cat:'카페·편의점',jp:'温めてください',read:'아타타메테 쿠다사이',kr:'데워주세요'},
+  {cat:'카페·편의점',jp:'お箸をください',read:'오하시오 쿠다사이',kr:'젓가락 주세요'},
+  {cat:'카페·편의점',jp:'レジ袋はいりません',read:'레지부쿠로와 이리마셍',kr:'비닐봉투 필요없어요'},
+  // 쇼핑 (기존 확장)
+  {cat:'쇼핑',jp:'試着してもいいですか？',read:'시챠쿠 시테모 이이데스카',kr:'입어봐도 되나요?'},
+  {cat:'쇼핑',jp:'別の色はありますか？',read:'베쓰노 이로와 아리마스카',kr:'다른 색상이 있나요?'},
+  {cat:'쇼핑',jp:'Mサイズをください',read:'에무 사이즈오 쿠다사이',kr:'M 사이즈로 주세요'},
+  {cat:'쇼핑',jp:'プレゼント用に包んでください',read:'프레젠토요니 쿠룬데 쿠다사이',kr:'선물 포장해 주세요'},
+  // 호텔에서
+  {cat:'호텔에서',jp:'チェックインをお願いします',read:'체꾸인오 오네가이시마스',kr:'체크인 부탁드립니다'},
+  {cat:'호텔에서',jp:'チェックアウトをお願いします',read:'체꾸아우토오 오네가이시마스',kr:'체크아웃 부탁드립니다'},
+  {cat:'호텔에서',jp:'荷物を預けてもいいですか？',read:'니모츠오 아즈케테모 이이데스카',kr:'짐 맡겨도 되나요?'},
+  {cat:'호텔에서',jp:'タオルを追加でください',read:'타오루오 쓰이카데 쿠다사이',kr:'타월 추가로 주세요'},
+  {cat:'호텔에서',jp:'Wi-Fiのパスワードは何ですか？',read:'와이파이노 파스와도와 난데스카',kr:'와이파이 비밀번호가 뭔가요?'},
+  {cat:'호텔에서',jp:'エアコンの使い方を教えてください',read:'에아콘노 쓰카이카타오 오시에테 쿠다사이',kr:'에어컨 사용법 알려주세요'},
+  {cat:'호텔에서',jp:'部屋のカギをなくしました',read:'헤야노 카기오 나쿠시마시타',kr:'방 열쇠를 잃어버렸어요'},
+  // 온천에서 (기존 확장)
+  {cat:'온천에서',jp:'露天風呂はどこですか？',read:'로텐부로와 도코데스카',kr:'노천탕이 어디예요?'},
+  {cat:'온천에서',jp:'シャンプーはありますか？',read:'샴푸와 아리마스카',kr:'샴푸가 있나요?'},
+  {cat:'온천에서',jp:'タトゥーがありますが入れますか？',read:'타투가 아리마스가 하이레마스카',kr:'문신이 있는데 들어갈 수 있나요?'},
+  // 사진 요청
+  {cat:'사진 요청',jp:'写真を撮っていただけますか？',read:'샤신오 톳테 이타다케마스카',kr:'사진 찍어주실 수 있나요?'},
+  {cat:'사진 요청',jp:'一緒に写真を撮ってもいいですか？',read:'잇쇼니 샤신오 톳테모 이이데스카',kr:'같이 사진 찍어도 될까요?'},
+  {cat:'사진 요청',jp:'もう一枚お願いします',read:'모우 이치마이 오네가이시마스',kr:'한 장 더 부탁드려요'},
+  {cat:'사진 요청',jp:'このボタンを押してください',read:'코노 보탄오 오시테 쿠다사이',kr:'이 버튼 눌러주세요'},
+  {cat:'사진 요청',jp:'写真を撮ってもいいですか？',read:'샤신오 톳테모 이이데스카',kr:'사진 찍어도 되나요?'},
+  // 날씨·감탄
+  {cat:'날씨·감탄',jp:'綺麗ですね！',read:'키레이데스네',kr:'아름답네요!'},
+  {cat:'날씨·감탄',jp:'最高です！',read:'사이코데스',kr:'최고예요!'},
+  {cat:'날씨·감탄',jp:'楽しいです',read:'타노시이데스',kr:'즐거워요'},
+  {cat:'날씨·감탄',jp:'寒いです',read:'사무이데스',kr:'추워요'},
+  {cat:'날씨·감탄',jp:'暑いです',read:'아쓰이데스',kr:'더워요'},
+  {cat:'날씨·감탄',jp:'雨が降りそうです',read:'아메가 후리소우데스',kr:'비가 올 것 같아요'},
+  // 긴급상황 (기존 확장)
+  {cat:'긴급상황',jp:'救急車を呼んでください',read:'큐큐샤오 욘데 쿠다사이',kr:'구급차 불러주세요'},
+  {cat:'긴급상황',jp:'気分が悪いです',read:'키붕가 와루이데스',kr:'몸이 안 좋아요'},
+  {cat:'긴급상황',jp:'薬はありますか？',read:'쿠스리와 아리마스카',kr:'약이 있나요?'},
+  {cat:'긴급상황',jp:'領事館に連絡したいです',read:'료지칸니 렌라쿠 시타이데스',kr:'영사관에 연락하고 싶어요'},
+];
+
+// Etiquette
+const ETIQUETTE = [
+  {icon:'🚌',title:'대중교통 매너',desc:'열차·버스 안에서 전화 통화 금지. 통화 중이라면 반드시 자리에서 일어나 문쪽으로 이동하세요. 음식물 섭취도 지양합니다. 줄서기는 철저히 — 새치기는 절대 금물입니다.'},
+  {icon:'🍽️',title:'식당 에티켓',desc:'물·오시보리(물수건)는 기본 무료 제공. 팁 문화가 없으므로 주지 않아도 됩니다. 음식을 남기는 것은 실례이니 양 조절을 미리 하세요. 계산은 계산대에서 하고, 테이블에서 돈을 내지 않습니다.'},
+  {icon:'♨️',title:'온천(오후로) 에티켓',desc:'반드시 입욕 전 몸을 깨끗이 씻은 후 온천에 들어가세요. 타월을 온천물에 담그는 것은 금지. 문신이 있으면 일부 시설 입장 불가합니다. 음주 후 입욕은 위험하므로 삼가세요.'},
+  {icon:'⛩️',title:'신사·사찰 예절',desc:'신사 참배 순서: 두 번 절(礼) → 두 번 박수(拍手) → 한 번 절. 촬영 금지 구역을 꼭 확인하세요. 입장 시 조용하고 엄숙하게 행동합니다. 참배 전 손을 씻는 데미즈야(手水舎)를 이용하세요.'},
+  {icon:'🗑️',title:'쓰레기 처리',desc:'일본 거리에는 쓰레기통이 거의 없습니다. 편의점에서 산 물건의 쓰레기는 편의점 쓰레기통에, 나머지는 호텔로 가져가세요. 길거리 음식 포장지는 직접 들고 다니는 것이 일반적입니다.'},
+  {icon:'🤝',title:'물건 주고받기',desc:'물건·명함·돈을 받을 때는 두 손으로 받는 것이 예의입니다. 계산할 때 거스름돈은 손이 아닌 계산대 위 트레이에 놓아줍니다. 가게를 나올 때 직원이 인사하면 가볍게 목례로 답하세요.'},
+  {icon:'📱',title:'사진 촬영 매너',desc:'사람을 찍을 때는 반드시 허락을 구하세요. 가게 내부, 음식 촬영은 허가 여부를 확인하세요. 신사·박물관에는 촬영 금지 구역이 있으니 표지판을 확인하세요.'},
+  {icon:'🛁',title:'욕실 사용 (호텔)',desc:'일본 욕실은 욕조와 샤워를 분리해서 사용합니다. 먼저 샤워로 몸을 씻은 후 욕조에 들어가세요. 욕조 물은 가족이 공동 사용하는 문화이므로 깨끗하게 이용하세요.'},
+];
+
+// Stamps
+const STAMPS = [
+  {id:'s1',name:'나고야 국제공항',icon:'✈️',day:1,dayLabel:'1일차'},
+  {id:'s2',name:'다카야마 옛거리',icon:'🏯',day:1,dayLabel:'1일차'},
+  {id:'s3',name:'오쿠히다 온천 ♨',icon:'♨️',day:1,dayLabel:'1일차'},
+  {id:'s4',name:'쿠로베호수',icon:'🏔️',day:2,dayLabel:'2일차'},
+  {id:'s5',name:'무로도 정상',icon:'🗻',day:2,dayLabel:'2일차 ★'},
+  {id:'s6',name:'우나즈키 토롯코',icon:'🚂',day:3,dayLabel:'3일차'},
+  {id:'s7',name:'시라카와고',icon:'🏘️',day:3,dayLabel:'3일차'},
+  {id:'s8',name:'나고야성',icon:'🏯',day:4,dayLabel:'4일차'},
+];
+
+// Offline Narratives
+const NARRATIVES_FALLBACK = {
+  incheon:{
+    1:{morning:'오늘은 설레는 여행 첫날입니다! 인천국제공항에서 KE741편에 탑승해 나고야로 향하는 날이에요. 기내에서 충분히 쉬시고, 나고야 도착 후에는 에도 시대의 정취가 가득한 다카야마 옛거리 관광이 기다리고 있습니다. 여권과 탑승권을 꼭 지참하시고, 환전은 미리 해두시면 좋아요.',
+     afternoon:'드디어 다카야마에 도착했습니다! 에도 시대의 흑목조 건물들이 이어지는 산마치 스지 거리를 천천히 걸어보세요. 사루보보 인형과 히다 지역 특산 사케가 유명한 쇼핑 명소입니다. 17시 전까지 관광을 마치고 오쿠히다 온천향으로 이동합니다.',
+     evening:'오늘 하루 긴 이동을 마치고 신호다카 야마노 호텔에 도착하셨습니다. 카이세키 정식으로 저녁을 드신 후 오쿠히다 온천에서 여독을 충분히 푸세요 ♨. 내일은 일본 최고의 절경 다테야마 알펜루트 횡단이 기다리고 있으니 일찍 주무시는 것이 좋겠어요.'},
+    2:{morning:'오늘은 여행의 하이라이트! 다테야마 알펜루트를 횡단하는 날입니다. 해발 2,450m 무로도까지 토로리버스·케이블카·로프웨이를 갈아타며 올라가요. 무로도는 여름에도 기온이 6–10°C로 매우 춥습니다. 경량 패딩이나 바람막이를 꼭 챙기세요!',
+     afternoon:'일본 최고의 절경을 눈에 담으셨나요? 무로도 설벽을 지나 비조다이라를 거쳐 도야마로 내려가는 일정입니다. 오늘 저녁은 다테코쿠 국제호텔에서 온천과 함께 카이세키 정식을 즐기실 수 있어요.',
+     evening:'알펜루트 횡단 수고 많으셨습니다! 도야마 호텔에서 온천으로 피로를 풀고 내일을 준비하세요. 내일은 우나즈키 토롯코 열차와 세계문화유산 시라카와고가 기다리고 있습니다 🚂'},
+    3:{morning:'오늘은 여행 3일차입니다. 도야마에서 출발해 우나즈키 토롯코 열차로 협곡의 웅장한 풍경을 감상하고, 세계문화유산 시라카와고 합장마을을 거쳐 나고야로 이동하는 날이에요. 이동 거리가 긴 편이니 보조배터리 충전을 미리 해두시고 편한 신발을 신어주세요.',
+     afternoon:'시라카와고 합장마을에 오신 것을 환영합니다! 유네스코 세계문화유산으로 지정된 400년 역사의 합장 가옥들이 눈앞에 펼쳐집니다. 마을 뒤편 언덕 전망대에서 마을 전체를 내려다보는 뷰가 최고예요. 17시까지 관람하고 나고야로 이동합니다.',
+     evening:'오늘 저녁은 나고야 명물 히즈마부시입니다! 장어덮밥을 처음엔 그냥, 다음엔 고명과 함께, 마지막엔 차를 부어 오차즈케로 즐기는 것이 정석이에요. 내일이 마지막 날이니 오늘 쇼핑을 미리 해두시는 것이 좋겠습니다 🛍'},
+    4:{morning:'마지막 날입니다! 나고야성과 혼마루 어전을 관광하고 귀국하는 일정이에요. 나고야성은 일본 3대 명성 중 하나로, 황금 샤치호코 장식이 유명합니다. 짐 정리를 미리 마치고 즐거운 마지막 관광을 즐기세요. 안전하게 귀국하시길 바랍니다! ✈️'}
+  }
+};
+NARRATIVES_FALLBACK.busan = JSON.parse(JSON.stringify(NARRATIVES_FALLBACK.incheon));
+NARRATIVES_FALLBACK.busan[1].morning = '오늘은 설레는 여행 첫날입니다! 김해국제공항에서 LJ375편에 탑승해 나고야로 향하는 날이에요. 나고야 도착 후 인천팀과 합류해 다카야마로 이동합니다. 일찍 출발하는 일정이니 공항에서 간단히 식사를 마치고 오시는 것이 좋습니다.';
+
+// Shopping Guide
+const SHOPPING = [
+  {area:'다카야마',day:'1일차',items:[
+    {icon:'🪆',name:'사루보보 인형',desc:'히다 지역 행운 부적. 빨간 원숭이 모양 인형으로 선물용으로 인기'},
+    {icon:'🪵',name:'히다 목각 공예',desc:'히다노사토에서 만들어지는 전통 목각. 열쇠고리·작은 조각상'},
+    {icon:'🍶',name:'히다 지역 사케',desc:'히다호마레(飛騨誉) 등 지역 특산 청주. 시음 가능한 양조장 多'},
+    {icon:'🍡',name:'미타라시 당고',desc:'간장 소스 꼬치 과자. 거리에서 바로 구워주는 것이 맛있음'},
+  ]},
+  {area:'무로도',day:'2일차',items:[
+    {icon:'📮',name:'알펜루트 기념 엽서',desc:'해발 2,450m에서 부치는 엽서. 우체국에서 발송 가능'},
+    {icon:'🏔️',name:'알펜루트 굿즈',desc:'머그컵·에코백·키홀더. 무로도역 기념품숍에서 구매'},
+  ]},
+  {area:'시라카와고',day:'3일차',items:[
+    {icon:'🏘️',name:'합장마을 미니어처',desc:'갓쇼즈쿠리 가옥 미니어처. 마을의 풍경을 그대로 담은 기념품'},
+    {icon:'🍶',name:'도부로쿠(어주)',desc:'시라카와고 전통 탁주. 지역에서만 양조 허가된 특산품'},
+    {icon:'🌿',name:'산채 가공식품',desc:'산나물 과자·절임류. 오래 보관 가능해 선물용으로 적합'},
+  ]},
+  {area:'나고야',day:'3–4일차',items:[
+    {icon:'🦐',name:'에비센 (새우전병)',desc:'나고야 명물. 파란 봉지 포장이 트레이드마크. 대형 마트에서 저렴'},
+    {icon:'🐔',name:'나고야 코친 관련',desc:'나고야 명물 닭 관련 가공품·소스류'},
+    {icon:'🏯',name:'나고야성 기념품',desc:'황금 샤치호코 모양 과자·키홀더. 성 내 기념품숍에서 구매'},
+    {icon:'🍜',name:'미소카쓰 소스',desc:'나고야식 된장 돈카츠 소스. 집에서 나고야 요리 재현 가능'},
+  ]},
+];
+
+// Checklists
+const CHECKLISTS = [
+  {title:'공통 (전 기간)',items:[
+    '여권 (유효기간 6개월 이상 확인)',
+    '항공권 E-티켓',
+    '여행자 보험 증권',
+    '엔화 현금 (1인 최소 30,000–50,000엔 권장)',
+    '신용카드 (해외 결제용)',
+    '스마트폰 + 충전기',
+    '보조배터리 (10,000mAh 이상 권장)',
+    '상비약 (두통약·소화제·지사제·밴드)',
+    '선크림 SPF50+',
+    '편한 운동화',
+    '우산 또는 우비',
+  ]},
+  {title:'1일차 (5/27)',items:[
+    '탑승 2시간 전 공항 도착 (인천: 08:35까지, 김해: 06:30까지)',
+    '기내 반입 금지 물품 확인 (액체류 100ml 이하)',
+    '100–110V 전압 어댑터 (일본 플러그는 A형, 한국과 동일)',
+    '다카야마 쇼핑 현금 준비',
+    '온천 전용 수건 (선택, 호텔 비치)',
+  ]},
+  {title:'2일차 (5/28) ★ 알펜루트',items:[
+    '경량 패딩 or 바람막이 ← 필수! (무로도 5–10°C)',
+    '장갑 (선택, 바람 강함)',
+    '편한 운동화 (雪길 있음)',
+    '보조배터리 (고지대 배터리 소모 빠름)',
+    '현금 (도시락 구매, 화장실 100엔, 기념품)',
+    '선글라스 (설산 반사광)',
+    '고산증 대비: 천천히 이동, 충분한 수분 섭취',
+    '멀미약 (로프웨이·버스 연속 탑승)',
+  ]},
+  {title:'3일차 (5/29)',items:[
+    '선크림·모자 (시라카와고 야외 관광)',
+    '얇은 겉옷 (토롯코 열차 터널 구간 냉기)',
+    '충분한 배터리 (사진 많이 찍는 날)',
+    '나고야 쇼핑 마지막 날 대비 여분 공간',
+    '히즈마부시 식당 예약 확인',
+  ]},
+  {title:'4일차 (5/30) 귀국',items:[
+    '짐 무게 확인 (부산팀 LJ376: 수하물 규정 확인)',
+    '면세 한도 초과 여부 확인 (1인 $800 = 약 800불)',
+    '면세품 영수증 보관',
+    '부산팀: 11:00 출발 → 09:30 공항 도착 목표',
+    '인천팀: 13:40 출발 → 11:30 공항 도착 목표',
+    '수하물 내 액체류 확인 (기내 반입 제한)',
+  ]},
+];
+
+// Emergency Contacts
+const EMERGENCY_CONTACTS = [
+  {icon:'🚑',name:'일본 구급·소방',number:'119',desc:'구급차·화재 신고'},
+  {icon:'🚔',name:'일본 경찰',number:'110',desc:'범죄·사고 신고'},
+  {icon:'🏢',name:'세종세계관광',number:'1599-2283',desc:'여행사 (국내)'},
+  {icon:'🇰🇷',name:'주일본 한국대사관',number:'+81-3-3452-7611',desc:'도쿄 · 24시간'},
+  {icon:'🇰🇷',name:'나고야 한국 영사관',number:'+81-52-586-9221',desc:'나고야'},
+  {icon:'🏥',name:'나고야 대학병원',number:'+81-52-741-2111',desc:'응급 진료 가능'},
+];
+
+const EMERG_PHRASES = [
+  {jp:'助けてください！',read:'타스케테 쿠다사이',kr:'도와주세요!'},
+  {jp:'救急車を呼んでください',read:'큐큐샤오 욘데 쿠다사이',kr:'구급차 불러주세요'},
+  {jp:'病院へ連れて行ってください',read:'뵤인에 쓰레테 잇테 쿠다사이',kr:'병원에 데려가 주세요'},
+  {jp:'財布を盗まれました',read:'사이후오 누스마레마시타',kr:'지갑을 도둑맞았어요'},
+  {jp:'迷子になりました',read:'마이고니 나리마시타',kr:'길을 잃었어요'},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  team: null,
+  userName: null,
+  userRole: null,
+  pendingTeam: null,
+  currentScreen: 'screen-onboarding',
+  prevScreen: null,
+  activeNav: 'home',
+  stamps: [],
+  apiKey: '',
+  exchangeRate: 9.5,
+  notifGranted: false,
+  phraseCategory: '기본 인사',
+  checklistDay: 0,
+  viewingDay: null,   // null = auto (today or first upcoming), 1-4 = specific day
+  commentListeners: {},
+};
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  state.stamps = JSON.parse(localStorage.getItem('stamps') || '[]');
+  state.apiKey = localStorage.getItem('claude_api_key') || '';
+  state.exchangeRate = parseFloat(localStorage.getItem('exchange_rate') || '9.5');
+  const savedTeam = localStorage.getItem('team');
+  const savedName = localStorage.getItem('userName');
+  const savedRole = localStorage.getItem('userRole');
+  if (savedTeam && savedName) {
+    state.team = savedTeam;
+    state.userName = savedName;
+    state.userRole = savedRole || '대표님';
+    startApp();
+  }
+  updateOnlineBadge();
+  window.addEventListener('online', updateOnlineBadge);
+  window.addEventListener('offline', updateOnlineBadge);
+  fetchExchangeRate();
+  initFirebase();
+}
+
+function updateProfileDisplay() {
+  const el = document.getElementById('profile-display');
+  if (el && state.userName) {
+    el.innerHTML = '<span style="color:' + getMemberColor(state.userName) + ';font-weight:700;font-size:15px">' + state.userName + '</span> <span style="font-size:13px;color:var(--text3)">' + state.userRole + '</span>';
+  }
+}
+
+function startApp() {
+  document.getElementById('main-nav').classList.add('visible');
+  updateProfileDisplay();
+  navTo('home');
+  renderPhrases();
+  renderStamps();
+  renderEtiquette();
+  renderShopping();
+  renderEmergency();
+  renderChecklist(0);
+  renderHotels();
+}
+
+// ============================================================
+// SCREEN NAV
+// ============================================================
+function showScreen(id) {
+  const prev = document.querySelector('.screen.active');
+  if (prev) {
+    prev.classList.remove('active');
+    prev.classList.add('prev');
+    setTimeout(() => prev.classList.remove('prev'), 300);
+  }
+  state.prevScreen = prev ? prev.id : null;
+  const next = document.getElementById(id);
+  if (next) {
+    next.classList.add('active');
+    state.currentScreen = id;
+  }
+}
+
+function goBack() {
+  if (state.prevScreen) showScreen(state.prevScreen);
+  else navTo(state.activeNav);
+}
+
+function navTo(tab) {
+  state.activeNav = tab;
+  const map = {home:'screen-home', phrases:'screen-phrases', stamps:'screen-stamps', more:'screen-more'};
+  showScreen(map[tab]);
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('nav-'+tab);
+  if (btn) btn.classList.add('active');
+  if (tab === 'home') renderHome();
+}
+
+// ============================================================
+// TEAM SELECT & NAME PICKER
+// ============================================================
+function pickTeam(team, btn) {
+  state.pendingTeam = team;
+  document.querySelectorAll('.team-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('ob-step1').style.display = 'none';
+  document.getElementById('ob-step2').style.display = 'block';
+  document.getElementById('ob-team-label').textContent = team === 'incheon' ? '✈️ 인천출발팀' : '🛫 부산출발팀';
+  renderNameGrid();
+}
+
+function backToStep1() {
+  state.pendingTeam = null;
+  document.getElementById('ob-step2').style.display = 'none';
+  document.getElementById('ob-step1').style.display = 'block';
+  document.querySelectorAll('.name-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('ob-start-btn').style.display = 'none';
+}
+
+function renderNameGrid() {
+  const grid = document.getElementById('name-grid');
+  grid.innerHTML = MEMBERS.map(m =>
+    '<button class="name-btn" onclick="selectName(\'' + m.name + '\',\'' + m.role + '\',this)">' +
+    '<span class="name-btn-name">' + m.name + '</span>' +
+    '<span class="name-btn-role">' + m.role + '</span>' +
+    '</button>'
+  ).join('');
+}
+
+function selectName(name, role, btn) {
+  document.querySelectorAll('.name-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  state.userName = name;
+  state.userRole = role;
+  document.getElementById('ob-start-btn').style.display = 'block';
+}
+
+function confirmName() {
+  if (!state.pendingTeam || !state.userName) return;
+  state.team = state.pendingTeam;
+  localStorage.setItem('team', state.team);
+  localStorage.setItem('userName', state.userName);
+  localStorage.setItem('userRole', state.userRole);
+  startApp();
+}
+
+function changeProfile() {
+  showScreen('screen-onboarding');
+  document.getElementById('ob-step1').style.display = 'none';
+  document.getElementById('ob-step2').style.display = 'block';
+  state.pendingTeam = state.team;
+  document.getElementById('ob-team-label').textContent = state.team === 'incheon' ? '✈️ 인천출발팀' : '🛫 부산출발팀';
+  renderNameGrid();
+  document.getElementById('main-nav').classList.remove('visible');
+}
+
+function resetTeam() {
+  localStorage.removeItem('team');
+  localStorage.removeItem('userName');
+  localStorage.removeItem('userRole');
+  state.team = null; state.userName = null; state.userRole = null; state.pendingTeam = null;
+  document.getElementById('ob-step1').style.display = 'block';
+  document.getElementById('ob-step2').style.display = 'none';
+  document.querySelectorAll('.team-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('ob-start-btn').style.display = 'none';
+  showScreen('screen-onboarding');
+  document.getElementById('main-nav').classList.remove('visible');
+}
+
+// ============================================================
+// HOME RENDER
+// ============================================================
+function renderHome() {
+  if (!state.team) return;
+
+  renderDayTabs();
+
+  const dayData = getViewingDay();
+  const todayData = getCurrentDay();
+  const isToday = !!(todayData && dayData && dayData.date === todayData.date);
+  const isPreTrip = !todayData; // any time before trip (or after)
+  const isPostTrip = !todayData && !dayData;
+
+  if (isPostTrip) {
+    document.getElementById('home-day').textContent = '여행 종료';
+    document.getElementById('home-title').textContent = '즐거운 여행이었습니다! 🎉';
+    document.getElementById('weather-bar').style.display = 'none';
+    document.getElementById('next-item-box').style.display = 'none';
+    document.getElementById('prog-wrap').style.display = 'none';
+    document.getElementById('narrative-wrap').style.display = 'none';
+    document.getElementById('top-cards').innerHTML = '<p style="color:var(--text4);font-size:14px;text-align:center;padding:30px 0">알펜루트 여행이 완료됐습니다.<br>소중한 추억 잘 간직하세요 🏔️</p>';
+    document.getElementById('timeline').innerHTML = '';
+    return;
+  }
+
+  document.getElementById('home-day').textContent = dayData.label;
+  document.getElementById('home-title').textContent = dayData.title;
+
+  // Dynamic top cards (countdown + day summary + tips)
+  renderTopCards(dayData, isPreTrip, isToday);
+
+  // Weather bar
+  const wb = document.getElementById('weather-bar');
+  wb.style.display = 'flex';
+  wb.innerHTML = `<span class="weather-icon">${dayData.weather.icon}</span><span class="weather-temp">${dayData.weather.temp}</span><span class="weather-desc" style="margin-left:4px;color:var(--text3)">${dayData.weather.desc}</span>`;
+
+  // AI Narrative — show only for today; for pre-trip show general message
+  const narrativeWrap = document.getElementById('narrative-wrap');
+  narrativeWrap.style.display = 'block';
+  if (isToday) {
+    renderNarrative(dayData);
+  } else {
+    // Pre-trip: show a static friendly message, not AI call
+    document.getElementById('narrative-text').textContent = '여행 출발 당일부터 현재 시각에 맞춘 AI 실시간 안내가 시작됩니다. 지금은 일정을 미리 살펴보며 준비해보세요! 🏔️';
+  }
+
+  // Progress & next item (today only)
+  if (isToday) {
+    document.getElementById('prog-wrap').style.display = 'block';
+    renderProgress(dayData);
+    renderNextItem(dayData);
+  } else {
+    document.getElementById('prog-wrap').style.display = 'none';
+    document.getElementById('next-item-box').style.display = 'none';
+  }
+
+  // Timeline
+  renderTimeline(dayData, isToday);
+  // 실시간 날씨 fetch
+  if (isToday || true) fetchRealTimeWeather();
+}
+
+const DAY_SUMMARIES = {
+  1:'인천·부산 출발 후 나고야를 거쳐 에도 시대 거리 다카야마를 관광하고, 오쿠히다 온천향에서 첫날 밤을 보냅니다. 이동 시간이 많으니 편한 신발과 충분한 현금을 준비하세요.',
+  2:'일본 최고의 절경 다테야마 알펜루트 횡단! 토로리버스·케이블카·로프웨이를 갈아타며 해발 2,450m 무로도까지 오릅니다. 고지대 기온 6–10°C — 경량 패딩 필수.',
+  3:'우나즈키 협곡 토롯코 열차로 시작해 유네스코 세계문화유산 시라카와고 합장마을을 거쳐 나고야로 이동. 이동 거리가 길어 보조배터리 완충을 추천합니다. 저녁은 나고야 명물 히즈마부시!',
+  4:'나고야성·혼마루 어전을 마지막으로 관광하고 귀국. 부산팀 09:30 공항 출발, 인천팀 11:30 공항 출발 목표. 면세 한도·수하물 확인 필수!',
+};
+
+const DAY_TIPS = {
+  1:['여권·탑승권 지참 확인','엔화 현금 준비 (최소 3만엔)','편한 운동화 착용','기내 반입 금지 물품 확인 (액체 100ml 이하)'],
+  2:['경량 패딩 or 바람막이 ← 필수!','보조배터리 완충 (고지대 배터리 소모 빠름)','선글라스 (설산 반사광)','화장실 동전 100엔 준비','멀미약 권장 (로프웨이·버스 연속)'],
+  3:['선크림·모자 (시라카와고 야외 관광)','얇은 겉옷 (토롯코 열차 터널 냉기)','보조배터리 충전 (사진 많이 찍는 날)','히즈마부시 식당 예약 확인'],
+  4:['짐 무게 확인 (수하물 규정)','면세품 한도 확인 ($800)','귀국편 탑승시간 재확인','쇼핑 마지막 기회 — 나고야역 지하상가'],
+};
+
+function renderTopCards(dayData, isPreTrip, isToday) {
+  const container = document.getElementById('top-cards');
+  container.innerHTML = '';
+
+  // 1. Countdown (pre-trip)
+  if (isPreTrip) {
+    const tripStart = new Date('2026-05-27T00:00:00');
+    const diffMs = tripStart - new Date();
+    const diffDays = Math.ceil(diffMs / (1000*60*60*24));
+    if (diffDays > 0) {
+      container.innerHTML += `
+        <div style="background:var(--blue);color:white;border-radius:var(--r);padding:16px;margin-bottom:12px;text-align:center">
+          <div style="font-size:11px;opacity:.8;margin-bottom:4px">여행 출발까지</div>
+          <div style="font-size:36px;font-weight:700;line-height:1.1">D-${diffDays}</div>
+          <div style="font-size:12px;opacity:.85;margin-top:6px">2026년 5월 27일 · 나고야 알펜루트 4일</div>
+          <div style="display:flex;justify-content:center;gap:16px;margin-top:10px;font-size:11px;opacity:.8">
+            <span>✈️ 인천팀 10:35</span><span>🛫 부산팀 08:30</span>
+          </div>
+        </div>`;
+    }
+  }
+
+  // 2. Day summary card (non-today days)
+  if (!isToday && dayData) {
+    const sum = DAY_SUMMARIES[dayData.day] || '';
+    container.innerHTML += `
+      <div class="card card-blue" style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--blue-dark);margin-bottom:6px">📋 ${dayData.label} 하루 요약</div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.8">${sum}</p>
+      </div>`;
+  }
+
+  // 3. Day tips (non-today days)
+  if (!isToday && dayData && DAY_TIPS[dayData.day]) {
+    const tips = DAY_TIPS[dayData.day];
+    container.innerHTML += `
+      <div class="card card-amber" style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">✅ ${dayData.day}일차 준비물 포인트</div>
+        ${tips.map(t=>`<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:5px"><span style="color:var(--amber);font-size:11px;margin-top:2px">▸</span><span style="font-size:12px;color:var(--text2);line-height:1.5">${t}</span></div>`).join('')}
+      </div>`;
+  }
+}
+
+function getCurrentDay() {
+  if (!state.team) return null;
+  const days = TRIP[state.team].days;
+  const today = new Date().toISOString().slice(0,10);
+  return days.find(d => d.date === today) || null;
+}
+
+// Returns the day data to display (respects viewingDay selection)
+function getViewingDay() {
+  if (!state.team) return null;
+  const days = TRIP[state.team].days;
+  if (state.viewingDay) {
+    return days.find(d => d.day === state.viewingDay) || null;
+  }
+  // Auto: return today if in trip, else first upcoming day
+  const today = new Date().toISOString().slice(0,10);
+  const todayData = days.find(d => d.date === today);
+  if (todayData) return todayData;
+  // Before trip: show day 1
+  const now = new Date();
+  const tripStart = new Date('2026-05-27');
+  if (now < tripStart) return days[0];
+  // After trip
+  return null;
+}
+
+function renderDayTabs() {
+  if (!state.team) return;
+  const days = TRIP[state.team].days;
+  const today = new Date().toISOString().slice(0,10);
+  const viewing = getViewingDay();
+  const viewingDayNum = viewing ? viewing.day : null;
+
+  const labels = ['5/27','5/28','5/29','5/30'];
+
+  let html = '';
+  days.forEach((d, i) => {
+    const isToday = d.date === today;
+    const isActive = d.day === viewingDayNum;
+    let cls = isActive ? 'active' : '';
+    const subLabel = isToday ? '오늘' : `${i+1}일차`;
+    html += `<button class="day-tab ${cls}" onclick="selectDay(${d.day})">
+      <span>${labels[i]}</span>
+      <span class="day-tab-sub">${subLabel}</span>
+    </button>`;
+  });
+  document.getElementById('day-tabs').innerHTML = html;
+}
+
+function selectDay(dayNum) {
+  state.viewingDay = dayNum;
+  renderHome();
+  const scroll = document.getElementById('home-scroll');
+  if (scroll) scroll.scrollTop = 0;
+}
+
+function getCurrentTime() {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function timeToMin(t) {
+  const [h,m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function renderProgress(dayData) {
+  const items = dayData.items;
+  const first = timeToMin(items[0].time);
+  const last = timeToMin(items[items.length-1].time);
+  const cur = getCurrentTime();
+  const pct = Math.min(100, Math.max(0, Math.round((cur - first) / (last - first) * 100)));
+  document.getElementById('prog-label').textContent = '오늘 진행률';
+  document.getElementById('prog-pct').textContent = pct + '%';
+  document.getElementById('prog-fill').style.width = pct + '%';
+}
+
+function renderNextItem(dayData) {
+  const cur = getCurrentTime();
+  const next = dayData.items.find(i => timeToMin(i.time) > cur);
+  const box = document.getElementById('next-item-box');
+  if (!next) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const diff = timeToMin(next.time) - cur;
+  const h = Math.floor(diff/60), m = diff%60;
+  const diffStr = h > 0 ? `${h}시간 ${m}분 후` : `${m}분 후`;
+  document.getElementById('next-item-title').textContent = next.icon + ' ' + next.title;
+  document.getElementById('next-item-time').textContent = next.time + ' · ' + diffStr;
+}
+
+// isLive = true means today
+function renderTimeline(dayData, isLive) {
+  const cur = getCurrentTime();
+  let html = '';
+  dayData.items.forEach((item, i) => {
+    const tMin = timeToMin(item.time);
+    const isDone = isLive && tMin < cur;
+    const curIdx = isLive ? dayData.items.findIndex(x => timeToMin(x.time) > cur) : -99;
+    const isCurrent = isLive && (curIdx === -1 ? i === dayData.items.length-1 : i === curIdx - 1);
+    const isLast = i === dayData.items.length - 1;
+    const dotClass = isDone ? 'tl-dot done' : isCurrent ? 'tl-dot now' : 'tl-dot';
+    const lineClass = isDone ? 'tl-line done' : 'tl-line';
+
+    html += '<div class="tl" style="' + (isDone?'opacity:.45':'') + '">';
+    html += '<div class="tl-left"><span class="tl-time">' + item.time + '</span></div>';
+    html += '<div class="tl-mid"><div class="' + dotClass + '"></div>' + (isLast?'':'<div class="' + lineClass + '"></div>') + '</div>';
+    html += '<div class="tl-body">';
+
+    const arrowId = 'arrow-' + item.id;
+    if (isCurrent) {
+      html += '<div class="tl-card now" onclick="toggleItem(\'' + item.id + '\')">';
+      html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span class="badge badge-live">● 진행중</span><span id="' + arrowId + '" style="margin-left:auto;color:var(--text4);font-size:11px">▼</span></div>';
+      html += '<div class="tl-title">' + item.icon + ' ' + item.title + '</div>';
+      html += '<div class="tl-sub">' + item.loc + '</div>';
+      html += '</div>';
+    } else {
+      html += '<div class="tl-card" onclick="toggleItem(\'' + item.id + '\')">';
+      html += '<div style="display:flex;align-items:center">';
+      html += '<div style="flex:1"><div class="tl-title">' + item.icon + ' ' + item.title + '</div>';
+      html += '<div class="tl-sub">' + item.loc + (isDone?' <span style="color:var(--green);font-size:10px">✓</span>':'') + '</div></div>';
+      html += '<span id="' + arrowId + '" style="color:var(--text4);font-size:11px;flex-shrink:0;margin-left:6px">▼</span>';
+      html += '</div></div>';
+    }
+
+    html += '<div id="exp-' + item.id + '" class="exp-panel" style="display:none">';
+    html += '<div class="exp-inner">' + buildExpandPanel(item) + '</div>';
+    html += '</div>';
+    html += '</div></div>';
+  });
+  document.getElementById('timeline').innerHTML = html;
+}
+
+function buildExpandPanel(item) {
+  let html = '';
+  // Food info
+  const locId = LOCATION_MAP[item.id];
+  if (locId && LOCATIONS[locId] && LOCATIONS[locId].restaurants) {
+    const rests = LOCATIONS[locId].restaurants.slice(0, 2);
+    html += '<div class="exp-section"><div class="exp-label">🍽️ 이 지역 맛집</div>';
+    rests.forEach(r => {
+      html += '<div class="exp-rest-mini"><div class="exp-rest-name">' + r.name + '</div>';
+      html += '<div class="exp-rest-meta">' + r.type + ' · <span style="color:var(--amber);font-weight:600">' + r.price + '</span></div>';
+      html += '<div style="font-size:10px;color:var(--text3);margin-top:2px;line-height:1.4">' + r.note + '</div></div>';
+    });
+    html += '<button class="exp-more-btn" onclick="openDetail(\'' + locId + '\');event.stopPropagation()">자세히 보기 (사진스팟·쇼핑) →</button>';
+    html += '</div>';
+  }
+  // Hotel info
+  const hotelIdx = HOTEL_MAP[item.id];
+  if (hotelIdx !== undefined && HOTELS[hotelIdx]) {
+    const h = HOTELS[hotelIdx];
+    html += '<div class="exp-section"><div class="exp-label">🏨 숙소 정보 — ' + h.name + '</div>';
+    html += '<div style="background:white;border:1px solid var(--border);border-radius:7px;padding:10px 12px">';
+    html += '<div class="exp-hotel-row"><span>♨️</span><span>' + h.onsen.slice(0,70) + (h.onsen.length>70?'…':'') + '</span></div>';
+    html += '<div class="exp-hotel-row"><span>🍽️</span><span>' + h.meal.slice(0,70) + (h.meal.length>70?'…':'') + '</span></div>';
+    html += '<div class="exp-hotel-row" style="color:var(--amber)"><span>💡</span><span>' + h.tip.slice(0,70) + (h.tip.length>70?'…':'') + '</span></div>';
+    html += '<button class="exp-more-btn" onclick="showScreen(\'screen-hotels\');event.stopPropagation()" style="margin-top:6px">호텔 전체 정보 →</button>';
+    html += '</div></div>';
+  }
+  // Comments
+  html += '<div class="exp-section">';
+  html += '<div class="exp-label" style="display:flex;align-items:center;gap:4px">💬 멤버 논평 <span id="cnt-' + item.id + '" style="color:var(--text4);font-weight:400"></span></div>';
+  html += '<div id="cmts-' + item.id + '"><div class="cmt-empty">논평을 불러오는 중...</div></div>';
+  if (state.userName) {
+    html += '<div class="cmt-input-row">';
+    html += '<input type="text" class="cmt-input" id="cinput-' + item.id + '" placeholder="' + state.userName + '(으)로 논평 남기기..." onkeydown="if(event.key===\'Enter\'){postComment(\'' + item.id + '\');event.preventDefault()}">';
+    html += '<button class="cmt-submit" onclick="postComment(\'' + item.id + '\')">등록</button>';
+    html += '</div>';
+  } else {
+    html += '<div class="cmt-no-fb">설정에서 이름을 선택하면 논평을 달 수 있습니다</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+let _expandedItems = {};
+function toggleItem(id) {
+  const panel = document.getElementById('exp-' + id);
+  const arrow = document.getElementById('arrow-' + id);
+  if (!panel) return;
+  if (!_expandedItems[id]) {
+    panel.style.display = 'block';
+    if (arrow) arrow.textContent = '▲';
+    _expandedItems[id] = true;
+    loadComments(id);
+  } else {
+    panel.style.display = 'none';
+    if (arrow) arrow.textContent = '▼';
+    _expandedItems[id] = false;
+  }
+}
+
+// ============================================================
+// FIREBASE COMMENTS
+// ============================================================
+function loadComments(itemId) {
+  if (!window.db) {
+    const el = document.getElementById('cmts-' + itemId);
+    if (el) el.innerHTML = '<div class="cmt-no-fb">댓글 기능은 Firebase 설정 후 이용 가능합니다</div>';
+    return;
+  }
+  if (state.commentListeners[itemId]) { state.commentListeners[itemId](); }
+  try {
+    const q = window.db.collection('alpentour_comments')
+      .where('itemId', '==', itemId)
+      .orderBy('createdAt', 'asc');
+    const unsub = q.onSnapshot(snapshot => {
+      renderCommentsList(itemId, snapshot.docs);
+    }, err => {
+      const el = document.getElementById('cmts-' + itemId);
+      if (el) el.innerHTML = '<div class="cmt-no-fb">인덱스 설정 중... 잠시 후 다시 시도하세요</div>';
+    });
+    state.commentListeners[itemId] = unsub;
+  } catch(e) { console.warn('loadComments error', e); }
+}
+
+function renderCommentsList(itemId, docs) {
+  const el = document.getElementById('cmts-' + itemId);
+  const cnt = document.getElementById('cnt-' + itemId);
+  if (!el) return;
+  if (cnt) cnt.textContent = docs.length > 0 ? '(' + docs.length + ')' : '';
+  if (docs.length === 0) {
+    el.innerHTML = '<div class="cmt-empty">아직 논평이 없어요. 첫 번째로 남겨보세요!</div>';
+    return;
+  }
+  el.innerHTML = docs.map(doc => {
+    const d = doc.data();
+    const color = getMemberColor(d.name);
+    const initial = d.name ? d.name[0] : '?';
+    const timeStr = d.createdAt ? formatRelTime(d.createdAt.toDate()) : '';
+    return '<div class="cmt-card">' +
+      '<div class="cmt-avatar" style="background:' + color + '">' + initial + '</div>' +
+      '<div class="cmt-body">' +
+      '<div class="cmt-meta"><span class="cmt-name">' + d.name + '</span> ' + d.role + ' · ' + timeStr + '</div>' +
+      '<div class="cmt-text">' + escapeHtml(d.text) + '</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+function postComment(itemId) {
+  if (!state.userName) { showToast('이름을 먼저 선택해주세요'); return; }
+  const input = document.getElementById('cinput-' + itemId);
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  if (!window.db) { showToast('Firebase 설정이 필요합니다'); return; }
+  input.value = '';
+  input.disabled = true;
+  window.db.collection('alpentour_comments').add({
+    itemId: itemId,
+    name: state.userName,
+    role: state.userRole,
+    text: text,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => {
+    input.disabled = false;
+    showToast('논평이 등록됐습니다 ✓');
+  }).catch(e => {
+    input.disabled = false;
+    showToast('등록에 실패했습니다. 다시 시도해주세요.');
+  });
+}
+
+function formatRelTime(date) {
+  const diff = Date.now() - date.getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return '방금 전';
+  if (m < 60) return m + '분 전';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + '시간 전';
+  return Math.floor(h/24) + '일 전';
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// getLocationId replaced by LOCATION_MAP
+
+let _detailMapUrl = '';
+function openDetail(locId) {
+  const loc = LOCATIONS[locId];
+  if (!loc) return;
+  const names = {takayama:'다카야마 옛거리','kurobe-lake':'쿠로베호수',murodo:'무로도 정상',unazuki:'우나즈키 토롯코',shirakawa:'시라카와고','nagoya-castle':'나고야성'};
+  document.getElementById('detail-title').textContent = names[locId] || locId;
+  // Hero gradient
+  const hero = document.getElementById('detail-hero');
+  hero.style.background = loc.heroGrad || 'var(--gray-light)';
+  const iconEl = document.getElementById('detail-icon');
+  iconEl.textContent = loc.icon;
+  iconEl.style.filter = 'drop-shadow(0 2px 6px rgba(0,0,0,.4))';
+  const elevEl = document.getElementById('detail-elev');
+  elevEl.textContent = loc.elev;
+  elevEl.style.color = loc.heroGrad ? 'rgba(255,255,255,.85)' : 'var(--text3)';
+  // Map button
+  _detailMapUrl = loc.mapUrl || '';
+  const mapBtn = document.getElementById('detail-map-btn');
+  mapBtn.style.display = loc.mapUrl ? 'flex' : 'none';
+  // Chips, desc, tip, photo
+  document.getElementById('detail-chips').innerHTML = loc.chips.map(c=>`<span class="chip">${c}</span>`).join('');
+  document.getElementById('detail-desc').textContent = loc.desc;
+  document.getElementById('detail-tip').textContent = loc.tip;
+  document.getElementById('detail-photo').textContent = loc.photo;
+  // Restaurants
+  const restWrap = document.getElementById('detail-rest-wrap');
+  const restDiv = document.getElementById('detail-rest');
+  if (loc.restaurants && loc.restaurants.length) {
+    restWrap.style.display = 'block';
+    restDiv.innerHTML = loc.restaurants.map(r=>`
+      <div class="rest-card">
+        <div class="rest-name">${r.name}</div>
+        <div class="rest-meta">
+          <span class="rest-badge">${r.type}</span>
+          <span class="rest-price">${r.price}</span>
+        </div>
+        <div class="rest-note">${r.note}</div>
+      </div>`).join('');
+  } else restWrap.style.display = 'none';
+  // Shop
+  const shopWrap = document.getElementById('detail-shop-wrap');
+  const shopDiv = document.getElementById('detail-shop');
+  if (loc.shop) {
+    shopWrap.style.display = 'block';
+    shopDiv.innerHTML = `<p style="font-size:12px;color:var(--text2);line-height:1.7">${loc.shop}</p>`;
+  } else shopWrap.style.display = 'none';
+  // Route
+  const routeWrap = document.getElementById('detail-route');
+  if (loc.hasRoute && loc.route) {
+    routeWrap.style.display = 'block';
+    document.getElementById('route-list').innerHTML = loc.route.map(r=>`
+      <div class="route-item">
+        <span class="route-dot ${r.done?'done-d':''}"></span>
+        <span style="flex:1">${r.step}</span>
+        <span style="color:var(--text4);font-size:10px">${r.vehicle||''}</span>
+      </div>`).join('');
+  } else routeWrap.style.display = 'none';
+  // Badge
+  document.getElementById('detail-status-badge').innerHTML = '';
+  // Scroll to top
+  document.querySelector('#screen-detail .scroll').scrollTop = 0;
+  showScreen('screen-detail');
+}
+
+function openDetailMap() {
+  if (_detailMapUrl) window.open(_detailMapUrl, '_blank');
+}
+
+// ============================================================
+// AI NARRATIVE
+// ============================================================
+async function renderNarrative(dayData) {
+  document.getElementById('narrative-text').innerHTML = '<span class="narrative-loading">AI 안내 멘트를 생성하는 중...</span>';
+  const text = await generateNarrative(dayData);
+  typewriterEffect('narrative-text', text);
+}
+
+async function refreshNarrative() {
+  const dayData = getCurrentDay();
+  renderNarrative(dayData);
+}
+
+async function generateNarrative(dayData) {
+  if (state.apiKey && navigator.onLine) {
+    try {
+      const context = buildNarrativeContext(dayData);
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': state.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 250,
+          system: '당신은 일본 알펜루트 단체 여행의 친절하고 따뜻한 AI 가이드입니다. 현재 상황을 바탕으로 여행자에게 실용적이고 자연스러운 한국어 안내 멘트를 4–5문장으로 작성해주세요. 이모지를 1–2개 사용해 친근하게, 현재 일정과 실용 팁을 포함해주세요.',
+          messages: [{role:'user', content: context}]
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.content[0].text;
+      }
+    } catch(e) {}
+  }
+  return getFallbackNarrative(dayData);
+}
+
+function buildNarrativeContext(dayData) {
+  if (!dayData) return '여행 시작 전입니다. 설레는 마음으로 준비 중인 여행자에게 격려 메시지를 보내주세요.';
+  const cur = getCurrentTime();
+  const h = Math.floor(cur/60);
+  const period = h < 12 ? '오전' : h < 17 ? '오후' : '저녁';
+  const curIdx = dayData.items.findIndex(x => timeToMin(x.time) > cur);
+  const curItem = curIdx > 0 ? dayData.items[curIdx-1] : curIdx === -1 ? dayData.items[dayData.items.length-1] : null;
+  const nextItem = curIdx !== -1 ? dayData.items[curIdx] : null;
+  return `날짜: ${dayData.date} (여행 ${dayData.day}일차)\n현재 시간: ${period} ${h%12||12}시\n오늘 일정: ${dayData.title}\n현재 일정: ${curItem ? curItem.title + ' (' + curItem.loc + ')' : '이동 중'}\n다음 일정: ${nextItem ? nextItem.time + ' ' + nextItem.title : '오늘 일정 마무리'}\n날씨: ${dayData.weather.temp}, ${dayData.weather.desc}\n출발팀: ${state.team === 'incheon' ? '인천출발팀' : '부산출발팀'}`;
+}
+
+function getFallbackNarrative(dayData) {
+  if (!dayData) return '여행 시작이 코앞입니다! 설레는 마음으로 짐 챙기기, 여권 확인, 환전을 마무리해 두세요. 알펜루트에서 멋진 추억 많이 만드세요! 🏔️';
+  const cur = getCurrentTime();
+  const h = Math.floor(cur/60);
+  const period = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+  const fb = NARRATIVES_FALLBACK[state.team][dayData.day];
+  return fb[period] || fb.morning;
+}
+
+function typewriterEffect(elId, text) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = '';
+  let i = 0;
+  const speed = 20;
+  function tick() {
+    if (i < text.length) {
+      el.textContent += text[i++];
+      setTimeout(tick, speed);
+    }
+  }
+  tick();
+}
+
+// ============================================================
+// PHRASES
+// ============================================================
+function renderPhrases() {
+  const cats = [...new Set(PHRASES.map(p => p.cat))];
+  const tabHtml = cats.map(c => `<button class="ptab ${c===state.phraseCategory?'active':''}" onclick="selectPhraseCategory('${c}',this)">${c}</button>`).join('');
+  document.getElementById('phrase-tabs').innerHTML = tabHtml;
+  renderPhraseList();
+}
+
+function selectPhraseCategory(cat, btn) {
+  state.phraseCategory = cat;
+  document.querySelectorAll('.ptab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPhraseList();
+}
+
+function renderPhraseList() {
+  const filtered = PHRASES.filter(p => p.cat === state.phraseCategory);
+  document.getElementById('phrase-list').innerHTML = filtered.map(p => `
+    <div class="pcard" onclick="copyPhrase('${p.jp}')">
+      <div class="pjp">${p.jp}</div>
+      <div class="pread">${p.read}</div>
+      <div class="pkr">${p.kr}</div>
+    </div>`).join('');
+}
+
+function copyPhrase(text) {
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => showToast('클립보드에 복사됐습니다'));
+  else showToast(text);
+}
+
+// ============================================================
+// STAMPS
+// ============================================================
+function renderStamps() {
+  const grid = document.getElementById('stamp-grid');
+  grid.innerHTML = STAMPS.map(s => {
+    const earned = state.stamps.includes(s.id);
+    const cls = earned ? 'stamp earned' : 'stamp';
+    return `<div class="${cls}" onclick="earnStamp('${s.id}')">
+      <div class="stamp-icon">${earned ? s.icon : '❓'}</div>
+      <div class="stamp-name">${earned ? s.name : '???'}</div>
+      <div class="stamp-day">${s.dayLabel}</div>
+    </div>`;
+  }).join('');
+  const count = state.stamps.length;
+  document.getElementById('stamp-count').textContent = `${count} / ${STAMPS.length}`;
+  document.getElementById('complete-banner').style.display = count === STAMPS.length ? 'block' : 'none';
+}
+
+function earnStamp(id) {
+  if (state.stamps.includes(id)) { showToast('이미 획득한 도장입니다 ✓'); return; }
+  state.stamps.push(id);
+  localStorage.setItem('stamps', JSON.stringify(state.stamps));
+  const s = STAMPS.find(x=>x.id===id);
+  showToast('🎉 도장 획득! ' + s.name);
+  renderStamps();
+}
+
+// ============================================================
+// ETIQUETTE
+// ============================================================
+function renderEtiquette() {
+  document.getElementById('etiquette-list').innerHTML = '<div style="padding:14px 0">' +
+    ETIQUETTE.map(e => `
+      <div class="etc-item">
+        <div class="etc-icon">${e.icon}</div>
+        <div>
+          <div class="etc-title">${e.title}</div>
+          <div class="etc-desc">${e.desc}</div>
+        </div>
+      </div>`).join('') + '</div>';
+}
+
+// ============================================================
+// HOTELS
+// ============================================================
+function renderHotels() {
+  const el = document.getElementById('hotels-list');
+  if (!el) return;
+  el.innerHTML = HOTELS.map(h => `
+    <div class="hotel-card" onclick="openHotelDetail('${h.id}')">
+      <div class="hotel-hero" style="background:${h.heroGrad}">${h.icon}</div>
+      <div class="hotel-name">${h.name}</div>
+      <div style="font-size:11px;color:var(--text4);margin-bottom:4px">${h.nameJp}</div>
+      <div class="hotel-meta">📅 ${h.night} &nbsp;·&nbsp; 📍 ${h.location}</div>
+      <div class="hotel-chips">${h.chips.map(c=>`<span class="hotel-chip">${c}</span>`).join('')}</div>
+      <p style="font-size:12px;color:var(--text2);line-height:1.55">${h.overview}</p>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text4)">📞 자세히 보기 →</span>
+      </div>
+    </div>`).join('');
+}
+
+let _currentHotel = null;
+function openHotelDetail(id) {
+  const h = HOTELS.find(x=>x.id===id);
+  if (!h) return;
+  _currentHotel = h;
+  // Build hotel detail in a modal overlay or push screen
+  const existing = document.getElementById('screen-hotel-detail');
+  const content = `
+    <div class="screen" id="screen-hotel-detail" style="z-index:50">
+      <div class="hdr">
+        <button class="back" onclick="closeHotelDetail()">← 뒤로</button>
+        <h2 style="font-size:14px">${h.name}</h2>
+      </div>
+      <div class="scroll" style="padding-bottom:30px">
+        <div style="height:130px;background:${h.heroGrad};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+          <div style="font-size:44px">${h.icon}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.85);font-weight:500">${h.location}</div>
+        </div>
+        <div style="padding:14px 16px 0">
+          <div style="font-size:12px;color:var(--amber);font-weight:700;margin-bottom:10px">📅 ${h.night}</div>
+          <div class="hotel-chips" style="margin-bottom:14px">${h.chips.map(c=>`<span class="hotel-chip">${c}</span>`).join('')}</div>
+          <p style="font-size:13px;color:var(--text2);line-height:1.75;margin-bottom:16px">${h.overview}</p>
+          <div class="card card-blue" style="margin-bottom:12px">
+            <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:8px">♨️ 온천 / 욕실</div>
+            <p style="font-size:12px;color:var(--text2);line-height:1.65">${h.onsen}</p>
+          </div>
+          <div class="card card-green" style="margin-bottom:12px">
+            <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:8px">🍽️ 식사 안내</div>
+            <p style="font-size:12px;color:var(--text2);line-height:1.65">${h.meal}</p>
+          </div>
+          <div class="card card-amber" style="margin-bottom:12px">
+            <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:8px">💡 알아두면 좋은 팁</div>
+            <p style="font-size:12px;color:var(--text2);line-height:1.65">${h.tip}</p>
+          </div>
+          <div style="background:var(--gray-light);border-radius:var(--r-sm);padding:12px 14px">
+            <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">🚌 교통 안내</div>
+            <p style="font-size:12px;color:var(--text2);line-height:1.6">${h.access}</p>
+          </div>
+          ${h.website ? `<div style="margin-top:12px;text-align:center"><a href="https://${h.website}" target="_blank" style="font-size:12px;color:var(--blue);text-decoration:none">🌐 ${h.website}</a></div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  if (existing) existing.remove();
+  document.getElementById('app').insertAdjacentHTML('beforeend', content);
+  const el = document.getElementById('screen-hotel-detail');
+  requestAnimationFrame(()=>{ el.classList.add('active'); });
+}
+
+function closeHotelDetail() {
+  const el = document.getElementById('screen-hotel-detail');
+  if (el) {
+    el.classList.remove('active');
+    setTimeout(()=>el.remove(), 300);
+  }
+}
+
+// ============================================================
+// CURRENCY
+// ============================================================
+async function fetchExchangeRate() {
+  if (!navigator.onLine) return;
+  try {
+    const res = await fetch('https://api.exchangerate-api.com/v4/latest/JPY');
+    if (res.ok) {
+      const data = await res.json();
+      const rate = data.rates.KRW;
+      if (rate) {
+        state.exchangeRate = rate;
+        localStorage.setItem('exchange_rate', rate);
+        const el = document.getElementById('rate-info');
+        if (el) el.textContent = `1엔 = ₩${rate.toFixed(2)} (실시간)`;
+      }
+    }
+  } catch(e) {
+    const el = document.getElementById('rate-info');
+    if (el) el.textContent = `1엔 ≈ ₩${state.exchangeRate} (저장된 환율)`;
+  }
+}
+
+function calcCurrency(dir) {
+  if (dir === 'yen') {
+    const yen = parseFloat(document.getElementById('yen-input').value) || 0;
+    const won = Math.round(yen * state.exchangeRate);
+    document.getElementById('won-result').textContent = '₩ ' + won.toLocaleString();
+  } else {
+    const won = parseFloat(document.getElementById('won-input').value) || 0;
+    const yen = Math.round(won / state.exchangeRate);
+    document.getElementById('yen-result').textContent = '¥ ' + yen.toLocaleString();
+  }
+}
+
+// ============================================================
+// SHOPPING
+// ============================================================
+function renderShopping() {
+  const el = document.getElementById('shopping-list');
+  el.innerHTML = SHOPPING.map(area => `
+    <div class="h-divider"></div>
+    <div class="section">
+      <div class="sec-title">${area.area} <span style="font-weight:400;color:var(--text4)">${area.day}</span></div>
+      ${area.items.map(i=>`
+        <div class="shop-item">
+          <span class="shop-icon">${i.icon}</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text1);margin-bottom:2px">${i.name}</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5">${i.desc}</div>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+// ============================================================
+// EMERGENCY
+// ============================================================
+function renderEmergency() {
+  document.getElementById('emerg-list').innerHTML = EMERGENCY_CONTACTS.map(c => `
+    <div class="emerg-item" onclick="callNumber('${c.number}')">
+      <span style="font-size:20px">${c.icon}</span>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text1)">${c.name}</div>
+        <div style="font-size:11px;color:var(--text3)">${c.desc}</div>
+      </div>
+      <span class="emerg-number">${c.number}</span>
+    </div>`).join('');
+  document.getElementById('emerg-phrases').innerHTML = EMERG_PHRASES.map(p=>`
+    <div class="pcard" style="margin-bottom:8px" onclick="copyPhrase('${p.jp}')">
+      <div class="pjp" style="color:var(--red)">${p.jp}</div>
+      <div class="pread">${p.read}</div>
+      <div class="pkr">${p.kr}</div>
+    </div>`).join('');
+}
+
+function callNumber(n) {
+  showToast(n + ' 로 전화 연결');
+  window.location.href = 'tel:' + n;
+}
+
+// ============================================================
+// CHECKLIST
+// ============================================================
+function showChecklist(day, btn) {
+  state.checklistDay = day;
+  document.querySelectorAll('#screen-checklist .ptab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChecklist(day);
+}
+
+function renderChecklist(day) {
+  const cl = CHECKLISTS[day];
+  if (!cl) return;
+  const savedKey = 'checklist_' + day;
+  const saved = JSON.parse(localStorage.getItem(savedKey) || '[]');
+  const html = `<div class="sec-title">${cl.title}</div>` +
+    cl.items.map((item,i) => {
+      const checked = saved.includes(i);
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleCheck(${day},${i})">
+        <span style="font-size:20px">${checked ? '✅' : '⬜'}</span>
+        <span style="font-size:13px;color:${checked?'var(--text4)':'var(--text1)'};${checked?'text-decoration:line-through':''}">${item}</span>
+      </div>`;
+    }).join('');
+  document.getElementById('checklist-content').innerHTML = html;
+}
+
+function toggleCheck(day, idx) {
+  const savedKey = 'checklist_' + day;
+  const saved = JSON.parse(localStorage.getItem(savedKey) || '[]');
+  const pos = saved.indexOf(idx);
+  if (pos === -1) saved.push(idx); else saved.splice(pos,1);
+  localStorage.setItem(savedKey, JSON.stringify(saved));
+  renderChecklist(day);
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  state.apiKey = key;
+  localStorage.setItem('claude_api_key', key);
+  showToast(key ? 'API 키가 저장됐습니다 ✓' : 'API 키가 삭제됐습니다');
+}
+
+function requestNotif() {
+  if (!('Notification' in window)) { showToast('이 브라우저는 알림을 지원하지 않습니다'); return; }
+  Notification.requestPermission().then(p => {
+    state.notifGranted = p === 'granted';
+    if (p === 'granted') { showToast('알림이 활성화됐습니다 🔔'); scheduleNotifications(); }
+    else showToast('알림 권한이 거부됐습니다');
+  });
+}
+
+function scheduleNotifications() {
+  if (!state.notifGranted) return;
+  const dayData = getCurrentDay();
+  if (!dayData) return;
+  const now = Date.now();
+  dayData.items.forEach(item => {
+    const [h,m] = item.time.split(':').map(Number);
+    const itemDate = new Date();
+    itemDate.setHours(h,m,0,0);
+    const itemMs = itemDate.getTime();
+    [-30,-10].forEach(offset => {
+      const notifMs = itemMs + offset * 60000;
+      const delay = notifMs - now;
+      if (delay > 0) {
+        setTimeout(() => {
+          new Notification('📍 ' + item.title, {
+            body: `${Math.abs(offset)}분 후 · ${item.loc}`,
+            icon: '🏔️'
+          });
+        }, delay);
+      }
+    });
+  });
+}
+
+// ============================================================
+// ONLINE BADGE
+// ============================================================
+function updateOnlineBadge() {
+  const badge = document.getElementById('online-badge');
+  if (!badge) return;
+  if (navigator.onLine) {
+    badge.textContent = '● 온라인';
+    badge.className = 'badge badge-green';
+  } else {
+    badge.textContent = '● 오프라인';
+    badge.className = 'badge badge-amber';
+  }
+  badge.style.display = 'inline-flex';
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// START
+// ============================================================
+
+// ============================================================
+// AI 일본어 통역
+// ============================================================
+async function handleTranslateImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Preview
+  const preview = document.getElementById('trans-preview');
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    await runTranslation(e.target.result);
+  };
+  reader.readAsDataURL(file);
+
+  // Reset
+  document.getElementById('trans-result').style.display = 'none';
+  document.getElementById('trans-retry-btn').style.display = 'none';
+  document.getElementById('trans-no-key').style.display = 'none';
+}
+
+async function runTranslation(dataUrl) {
+  if (!state.apiKey) {
+    document.getElementById('trans-no-key').style.display = 'block';
+    return;
+  }
+
+  const loading = document.getElementById('trans-loading');
+  const result = document.getElementById('trans-result');
+  loading.style.display = 'block';
+  result.style.display = 'none';
+
+  try {
+    const base64 = dataUrl.split(',')[1];
+    const mimeMatch = dataUrl.match(/data:([^;]+);/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': state.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mimeType, data: base64 }
+            },
+            {
+              type: 'text',
+              text: '이 이미지에서 일본어 텍스트를 모두 찾아 한국어로 번역해주세요. 각 항목을 다음 JSON 배열 형식으로만 응답하세요 (다른 텍스트 없이): [{"jp":"일본어원문","kr":"한국어번역"}]. 일본어가 없으면 [{"jp":"","kr":"일본어 텍스트를 찾을 수 없습니다"}]로 응답하세요.'
+            }
+          ]
+        }]
+      })
+    });
+
+    loading.style.display = 'none';
+
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.content[0].text.trim();
+      try {
+        const clean = text.replace(/```json|```/g, '').trim();
+        const items = JSON.parse(clean);
+        if (items.length === 0 || (items.length === 1 && !items[0].jp)) {
+          result.innerHTML = '<div class="trans-result-item"><div class="trans-kr" style="color:var(--text3)">이미지에서 일본어 텍스트를 찾을 수 없습니다</div></div>';
+        } else {
+          result.innerHTML = items.map(item =>
+            '<div class="trans-result-item">' +
+            (item.jp ? '<div class="trans-jp">' + escapeHtml(item.jp) + '</div>' : '') +
+            '<div class="trans-kr">→ ' + escapeHtml(item.kr) + '</div>' +
+            '</div>'
+          ).join('');
+        }
+        result.style.display = 'block';
+        document.getElementById('trans-retry-btn').style.display = 'block';
+      } catch(e) {
+        result.innerHTML = '<div class="trans-result-item"><div class="trans-kr">' + escapeHtml(text) + '</div></div>';
+        result.style.display = 'block';
+        document.getElementById('trans-retry-btn').style.display = 'block';
+      }
+    } else {
+      result.innerHTML = '<div class="trans-result-item"><div class="trans-kr" style="color:var(--red)">번역 실패. API 키를 확인해주세요.</div></div>';
+      result.style.display = 'block';
+      document.getElementById('trans-retry-btn').style.display = 'block';
+    }
+  } catch(e) {
+    loading.style.display = 'none';
+    result.innerHTML = '<div class="trans-result-item"><div class="trans-kr" style="color:var(--red)">오류: ' + e.message + '</div></div>';
+    result.style.display = 'block';
+    document.getElementById('trans-retry-btn').style.display = 'block';
+  }
+}
+
+// ============================================================
+// 실시간 날씨 (open-meteo.com — API 키 불필요)
+// ============================================================
+const WEATHER_CODES = {
+  0:'☀️ 맑음', 1:'🌤️ 대체로 맑음', 2:'⛅ 구름 조금', 3:'☁️ 흐림',
+  45:'🌫️ 안개', 48:'🌫️ 짙은 안개',
+  51:'🌦️ 이슬비', 53:'🌦️ 이슬비', 55:'🌧️ 이슬비',
+  61:'🌧️ 비', 63:'🌧️ 비', 65:'🌧️ 강한 비',
+  71:'🌨️ 눈', 73:'🌨️ 눈', 75:'❄️ 강한 눈',
+  80:'🌦️ 소나기', 81:'🌧️ 소나기', 82:'⛈️ 강한 소나기',
+  95:'⛈️ 뇌우', 96:'⛈️ 뇌우(우박)', 99:'⛈️ 강한 뇌우',
+};
+
+async function fetchRealTimeWeather() {
+  if (!navigator.geolocation) return;
+  try {
+    const pos = await new Promise((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, {timeout:8000})
+    );
+    const {latitude: lat, longitude: lon} = pos.coords;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    const c = data.current;
+    const temp = Math.round(c.temperature_2m);
+    const feels = Math.round(c.apparent_temperature);
+    const desc = WEATHER_CODES[c.weather_code] || '🌡️';
+    const wind = Math.round(c.wind_speed_10m);
+    const wb = document.getElementById('weather-bar');
+    if (wb) {
+      wb.innerHTML =
+        '<span style="font-size:18px">' + desc.split(' ')[0] + '</span>' +
+        '<span style="font-size:13px;font-weight:700;color:var(--text1)">' + temp + '°C</span>' +
+        '<span style="font-size:11px;color:var(--text3)">체감 ' + feels + '°C · 바람 ' + wind + 'm/s</span>' +
+        '<span style="font-size:11px;color:var(--text3);margin-left:4px">' + desc.split(' ').slice(1).join(' ') + '</span>' +
+        '<span style="font-size:10px;color:var(--text4);margin-left:auto">📍 현재위치</span>';
+      localStorage.setItem('last_weather', JSON.stringify({temp, feels, desc, wind, ts: Date.now()}));
+    }
+  } catch(e) {
+    // 위치 권한 거부 시 저장된 날씨 표시
+    const saved = localStorage.getItem('last_weather');
+    if (saved) {
+      try {
+        const w = JSON.parse(saved);
+        const wb = document.getElementById('weather-bar');
+        if (wb && wb.innerHTML.includes('weather-icon') === false) return;
+        if (wb) {
+          wb.innerHTML += '<span style="font-size:10px;color:var(--text4);margin-left:auto">📍 이전 날씨</span>';
+        }
+      } catch(e2) {}
+    }
+  }
+}
+
+window.onload = init;
+
+// ============================================================
+// SERVICE WORKER 등록 (PWA 오프라인 지원)
+// ============================================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SW 등록됨:', reg.scope))
+      .catch(err => console.log('SW 등록 실패:', err));
+  });
+}
+</script>
+</body>
+</html>
